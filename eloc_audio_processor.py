@@ -17,7 +17,7 @@ class ElocAudioProcessor(tk.Tk):
         # Set window properties
         self.title("ELOC Audio Processor")
         self.geometry("900x700")
-        self.configure(bg="#141c11")  # Dark green background
+        self.configure(bg="#626F47")  # Background for main window
         
         # Set default values
         self.time_offset = -2
@@ -29,17 +29,41 @@ class ElocAudioProcessor(tk.Tk):
         self.style.theme_use('clam')  # Use clam theme as base
         
         # Configure styles with new color scheme
-        self.style.configure('TFrame', background='#141c11')
-        self.style.configure('TLabel', background='#141c11', foreground='#e7e8a6', font=('Segoe UI', 10))
-        self.style.configure('TButton', background='#5c6b28', foreground='#e7e8a6', font=('Segoe UI', 10, 'bold'), 
+        # Color scheme explanation:
+        # #626F47 - Dark olive green - Used for frames, labels, and standard buttons backgrounds
+        # #FEFAE0 - Off-white/cream - Used for text on buttons and labels
+        # #e7e8a6 - Light green/beige - Main window background and checkbutton background
+        # #da9432 - Golden amber - Used for accent buttons (like "Process Selected Folders")
+        # #8c4511 - Brown - Used for combobox text
+        # #000000 - Black - Used for combobox readonly field background
+        
+        self.style.configure('TFrame', background='#626F47')  # Dark olive green frames
+        self.style.configure('TLabel', background='#626F47', foreground='#FEFAE0', font=('Segoe UI', 10))  # Dark green labels with cream text
+        
+        # Standard buttons 
+        self.style.configure('TButton', background='#515c3b', foreground='#FEFAE0', font=('Segoe UI', 10), 
+                            borderwidth=0, relief='flat', padding=(15, 10))  # Add padding (horizontal, vertical)
+        # Add hover (active) state for standard buttons - lighter olive green when hovered
+        self.style.map('TButton', 
+                      background=[('active', '#515c3b')],
+                      foreground=[('active', '#da9432')])
+        
+        # Accent buttons (like "Process Selected Folders") - Golden amber with cream text
+        self.style.configure('Accent.TButton', background='#da9432', foreground='#FEFAE0', font=('Segoe UI', 12, 'bold'), 
                             borderwidth=0, relief='flat')
-        self.style.configure('Accent.TButton', background='#da9432', foreground='#141c11', font=('Segoe UI', 10, 'bold'), 
-                            borderwidth=0, relief='flat')
-        self.style.configure('TCheckbutton', background='#141c11', foreground='#e7e8a6', font=('Segoe UI', 10))
-        self.style.configure('TCombobox', background='#141c11', foreground='#e7e8a6', fieldbackground='#141c11')
-        self.style.map('TCombobox', fieldbackground=[('readonly', '#141c11')])
-        self.style.map('TCombobox', selectbackground=[('readonly', '#141c11')])
-        self.style.map('TCombobox', selectforeground=[('readonly', '#e7e8a6')])
+        # Add hover (active) state for accent buttons - brighter amber when hovered
+        self.style.map('Accent.TButton', 
+                      background=[('active', '#f5a93a')],
+                      foreground=[('active', '#FFFFFF')])
+        
+        # Checkbuttons - Light green/beige background with cream text
+        self.style.configure('TCheckbutton', background='#e7e8a6', foreground='#FEFAE0', font=('Segoe UI', 10))
+        
+        # Combobox - White background with brown text, light green field background
+        self.style.configure('TCombobox', background='white', foreground='#8c4511', fieldbackground='#e7e8a6')
+        self.style.map('TCombobox', fieldbackground=[('readonly', '#e7e8a6')])  # Black background when readonly
+        self.style.map('TCombobox', selectbackground=[('readonly', '#e7e8a6')])  # Light green selection background
+        self.style.map('TCombobox', selectforeground=[('readonly', '#e7e8a6')])  # Light green selection text
         
         # Create main frame
         self.main_frame = ttk.Frame(self)
@@ -78,6 +102,17 @@ class ElocAudioProcessor(tk.Tk):
         ttk.Label(param_frame, text="Segment Length (seconds):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
         self.segment_length_var = tk.DoubleVar(value=self.segment_length)
         ttk.Spinbox(param_frame, from_=1, to=30, increment=1, textvariable=self.segment_length_var, width=10).grid(row=1, column=1, padx=5, pady=5)
+        
+        # Processing options
+        ttk.Label(param_frame, text="Processing Options:").grid(row=0, column=2, sticky=tk.W, padx=(20, 5), pady=5)
+        self.process_option_var = tk.StringVar(value="both")
+        
+        # Radio buttons for processing options
+        ttk.Radiobutton(param_frame, text="Create Raven Selection Tables", 
+                       variable=self.process_option_var, value="tables").grid(row=0, column=3, sticky=tk.W, padx=5, pady=5)
+        
+        ttk.Radiobutton(param_frame, text="Cut and Copy Detected Soundfiles", 
+                       variable=self.process_option_var, value="audio").grid(row=1, column=3, sticky=tk.W, padx=5, pady=5)
         
         # Folder list section
         folder_frame = ttk.Frame(self.main_frame)
