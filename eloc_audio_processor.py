@@ -6,9 +6,12 @@ from tkinter import ttk, messagebox, filedialog
 import threading
 import string
 import ctypes
+import concurrent.futures
 from datetime import datetime
 from pydub import AudioSegment
 import csv
+import time
+import logging
 
 class ElocAudioProcessor(tk.Tk):
     def __init__(self):
@@ -24,6 +27,13 @@ class ElocAudioProcessor(tk.Tk):
         self.segment_length = 5
         self.selected_folders = []
         
+        # Set up logging to file
+        self.log_file_path = "eloc_progress_log.txt"
+        # Create or clear the log file
+        with open(self.log_file_path, 'w') as f:
+            f.write(f"ELOC Audio Processor Log - Started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write("-" * 80 + "\n\n")
+        
         # Create a style for ttk widgets
         self.style = ttk.Style()
         self.style.theme_use('clam')  # Use clam theme as base
@@ -38,10 +48,10 @@ class ElocAudioProcessor(tk.Tk):
         # #000000 - Black - Used for combobox readonly field background
         
         self.style.configure('TFrame', background='#54613b')  # Dark olive green frames
-        self.style.configure('TLabel', background='#54613b', foreground='#FEFAE0', font=('Segoe UI', 10))  # Dark green labels with cream text
+        self.style.configure('TLabel', background='#54613b', foreground='#f3faeb', font=('Segoe UI', 10))  # Dark green labels with cream text
         
         # Standard buttons 
-        self.style.configure('TButton', background='#424d2f', foreground='#FEFAE0', font=('Segoe UI', 10), 
+        self.style.configure('TButton', background='#424d2f', foreground='#f3faeb', font=('Segoe UI', 10), 
                             borderwidth=0, relief='flat', padding=(15, 10))  # Add padding (horizontal, vertical)
         # Add hover (active) state for standard buttons 
         self.style.map('TButton', 
@@ -350,8 +360,16 @@ class ElocAudioProcessor(tk.Tk):
                         daemon=True).start()
     
     def run_processing(self, drive_path, selected_folders, time_offset, segment_length):
-        """Run the processing in a background thread"""
+        """Run the processing in a background thread with parallel processing"""
         try:
+            total_folders = len(selected_folders)
+            self.update_status(f"Starting to process {total_folders} folders... Please wait.")
+            
+            # Prepare folder paths and output directories
+            folder_paths = []
+            selection_tables_dirs = []
+            audio_segments_dirs = []
+            
             for folder in selected_folders:
                 # Check if we're using a custom folder or SD card
                 if drive_path == "Custom Folder" and hasattr(self, 'custom_folder_path'):
@@ -366,8 +384,6 @@ class ElocAudioProcessor(tk.Tk):
                     # For SD card, construct path as before
                     folder_path = os.path.join(drive_path, "eloc", folder)
                 
-                self.update_status(f"Processing folder: {os.path.basename(folder_path)}")
-                
                 # Create output directories
                 output_base = os.path.join(folder_path, "output")
                 selection_tables_dir = os.path.join(output_base, "Raven_Selection_Tables")
@@ -376,28 +392,98 @@ class ElocAudioProcessor(tk.Tk):
                 os.makedirs(selection_tables_dir, exist_ok=True)
                 os.makedirs(audio_segments_dir, exist_ok=True)
                 
-                # Process CSV and WAV files
-                self.process_folder(folder_path, selection_tables_dir, audio_segments_dir, time_offset, segment_length)
+                folder_paths.append(folder_path)
+                selection_tables_dirs.append(selection_tables_dir)
+                audio_segments_dirs.append(audio_segments_dir)
             
-            self.update_status("Processing complete!")
-            messagebox.showinfo("Processing Complete", "All selected folders have been processed successfully.")
+            # Process folders with parallel execution
+            self.update_status(f"Processing {total_folders} folders in parallel... Please wait.")
+            
+            # Use a ThreadPoolExecutor for parallel processing
+            # Limit the number of workers to avoid overloading the system
+            max_workers = min(os.cpu_count() or 4, total_folders)
+            self.update_status(f"Using {max_workers} parallel workers for processing.")
+            
+            start_time = time.time()
+            
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all folder processing tasks
+                futures = []
+                for i, (folder_path, selection_tables_dir, audio_segments_dir) in enumerate(
+                    zip(folder_paths, selection_tables_dirs, audio_segments_dirs), 1
+                ):
+                    self.update_status(f"Submitting folder {i}/{total_folders}: {os.path.basename(folder_path)}")
+                    future = executor.submit(
+                        self.process_folder_parallel,
+                        folder_path, 
+                        selection_tables_dir, 
+                        audio_segments_dir, 
+                        time_offset, 
+                        segment_length,
+                        i,
+                        total_folders
+                    )
+                    futures.append(future)
+                
+                # Wait for all tasks to complete and handle results
+                for i, future in enumerate(concurrent.futures.as_completed(futures), 1):
+                    try:
+                        result = future.result()
+                        self.update_status(f"Completed folder {i}/{total_folders}: {result}")
+                    except Exception as e:
+                        self.update_status(f"Error processing folder {i}: {str(e)}")
+            
+            end_time = time.time()
+            processing_time = end_time - start_time
+            
+            self.update_status(f"Processing complete! All folders processed in {processing_time:.2f} seconds.")
+            messagebox.showinfo("Processing Complete", 
+                               f"All selected folders have been processed successfully in {processing_time:.2f} seconds.")
             
         except Exception as e:
             self.update_status(f"Error during processing: {str(e)}")
             messagebox.showerror("Processing Error", f"An error occurred: {str(e)}")
     
+    def process_folder_parallel(self, folder_path, selection_tables_dir, audio_segments_dir, 
+                               time_offset, segment_length, folder_index, total_folders):
+        """Process a single folder in a parallel thread"""
+        try:
+            # Update status with thread-safe method
+            self.update_status(f"Processing folder {folder_index}/{total_folders}: {os.path.basename(folder_path)}...")
+            
+            # Process the folder using the existing method
+            self.process_folder(folder_path, selection_tables_dir, audio_segments_dir, time_offset, segment_length)
+            
+            # Return the folder name for status updates
+            return os.path.basename(folder_path)
+        except Exception as e:
+            # Re-raise the exception to be caught by the executor
+            raise Exception(f"Error processing {os.path.basename(folder_path)}: {str(e)}")
+    
     def update_status(self, message):
-        """Update status bar from a background thread"""
+        """Update status bar from a background thread and write to log file"""
+        # Update the status bar
         self.after(0, lambda: self.status_var.set(message))
+        
+        # Write to log file
+        try:
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            with open(self.log_file_path, 'a') as f:
+                f.write(f"[{timestamp}] {message}\n")
+        except Exception as e:
+            print(f"Error writing to log file: {str(e)}")
     
     def process_folder(self, folder_path, selection_tables_dir, audio_segments_dir, time_offset, segment_length):
         """Process a single folder (similar to the original scripts but adapted)"""
         # Get WAV files and their start times
+        self.update_status(f"Scanning for WAV files in {os.path.basename(folder_path)}... Please wait.")
         wav_files = glob.glob(os.path.join(folder_path, "*.wav"))
         
         if not wav_files:
             self.update_status(f"No WAV files found in {folder_path}")
             return
+        
+        self.update_status(f"Found {len(wav_files)} WAV files. Extracting timestamps... Please wait.")
             
         wav_start_times = {}
         month_map = {
@@ -418,7 +504,14 @@ class ElocAudioProcessor(tk.Tk):
                     wav_start_times[recording_id] = seconds
         
         # Process CSV files
+        self.update_status(f"Scanning for CSV files in {os.path.basename(folder_path)}... Please wait.")
         csv_files = glob.glob(os.path.join(folder_path, "*.csv"))
+        
+        if not csv_files:
+            self.update_status(f"No CSV files found in {folder_path}")
+            return
+            
+        self.update_status(f"Found {len(csv_files)} CSV files. Processing detection data... Please wait.")
         
         for csv_file in csv_files:
             try:
@@ -469,6 +562,7 @@ class ElocAudioProcessor(tk.Tk):
                     
                     # Check if selection tables should be created
                     if self.create_tables_var.get():
+                        self.update_status(f"Creating Raven selection table for recording {recording_id}... Please wait.")
                         # Initialize selection table content
                         raven_table_content = "Selection\tView\tChannel\tBegin Time (s)\tEnd Time (s)\tLow Freq (Hz)\tHigh Freq (Hz)\n"
                         
@@ -490,19 +584,31 @@ class ElocAudioProcessor(tk.Tk):
                         with open(output_path, 'w') as f:
                             f.write(raven_table_content)
                         
-                        self.update_status(f"Selection tables created for {os.path.basename(csv_file)}")
+                        self.update_status(f"Selection table created for {recording_id}")
                 
-                # Check if audio segments should be extracted
-                if self.extract_audio_var.get():
-                    self.extract_audio_segments(folder_path, selection_tables_dir, audio_segments_dir)
+                    # Check if audio segments should be extracted
+                    if self.extract_audio_var.get():
+                        self.update_status(f"Starting audio segment extraction for {recording_id}... Please wait.")
+                        self.extract_audio_segments(folder_path, selection_tables_dir, audio_segments_dir)
                 
             except Exception as e:
                 self.update_status(f"Error processing CSV file {os.path.basename(csv_file)}: {str(e)}")
     
     def extract_audio_segments(self, folder_path, selection_tables_dir, audio_segments_dir):
-        """Extract audio segments based on selection tables"""
+        """Extract audio segments based on selection tables using optimized approach with parallel processing"""
+        self.update_status(f"Scanning for selection tables in {os.path.basename(selection_tables_dir)}... Please wait.")
         selection_tables = glob.glob(os.path.join(selection_tables_dir, "*.txt"))
         
+        if not selection_tables:
+            self.update_status("No selection tables found to extract audio segments from.")
+            return
+            
+        self.update_status(f"Found {len(selection_tables)} selection tables. Starting audio extraction... Please wait.")
+        
+        # Group segments by WAV file to avoid loading the same file multiple times
+        segments_by_wav = {}
+        
+        # First pass: Parse all selection tables and organize segments by WAV file
         for selection_table in selection_tables:
             # Find the corresponding WAV file
             wav_file = self.find_wav_file(selection_table, folder_path)
@@ -510,46 +616,132 @@ class ElocAudioProcessor(tk.Tk):
                 self.update_status(f"No matching WAV file found for {os.path.basename(selection_table)}, skipping.")
                 continue
             
-            # Load the WAV file
-            try:
-                audio = AudioSegment.from_wav(wav_file)
-            except Exception as e:
-                self.update_status(f"Error loading audio file: {e}")
-                continue
-            
             # Parse the selection table
-            with open(selection_table, 'r') as f:
-                # Skip the header line
-                header = f.readline()
+            try:
+                with open(selection_table, 'r') as f:
+                    # Skip the header line
+                    header = f.readline()
+                    
+                    # Read the rest of the lines
+                    reader = csv.reader(f, delimiter='\t')
+                    for i, row in enumerate(reader, 1):
+                        if len(row) >= 5:  # Ensure we have enough columns
+                            try:
+                                # Extract begin and end times in seconds
+                                begin_time = float(row[3])
+                                end_time = float(row[4])
+                                
+                                # Store segment info
+                                if wav_file not in segments_by_wav:
+                                    segments_by_wav[wav_file] = []
+                                
+                                segments_by_wav[wav_file].append({
+                                    'begin_time': begin_time,
+                                    'end_time': end_time,
+                                    'segment_id': i,
+                                    'selection_table': os.path.basename(selection_table)
+                                })
+                            except Exception as e:
+                                self.update_status(f"Error parsing segment {i} in {os.path.basename(selection_table)}: {e}")
+            except Exception as e:
+                self.update_status(f"Error reading selection table {os.path.basename(selection_table)}: {e}")
+        
+        # Second pass: Process WAV files in parallel
+        total_wav_files = len(segments_by_wav)
+        if total_wav_files == 0:
+            self.update_status("No segments to extract.")
+            return
+            
+        self.update_status(f"Processing {total_wav_files} WAV files in parallel... Please wait.")
+        
+        # Determine the number of workers for parallel processing
+        # Use fewer workers for WAV processing to avoid memory issues
+        max_workers = min(os.cpu_count() or 2, total_wav_files, 4)  # Limit to 4 max to avoid memory issues
+        self.update_status(f"Using {max_workers} parallel workers for audio extraction.")
+        
+        start_time = time.time()
+        
+        # Process WAV files in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Prepare arguments for each WAV file
+            wav_tasks = []
+            for wav_file, segments in segments_by_wav.items():
+                # Sort segments by begin time to optimize sequential access
+                segments.sort(key=lambda x: x['begin_time'])
+                wav_tasks.append((wav_file, segments, audio_segments_dir))
+            
+            # Submit all WAV processing tasks
+            futures = {executor.submit(self.process_wav_file, *task, wav_index, total_wav_files): task 
+                      for wav_index, task in enumerate(wav_tasks, 1)}
+            
+            # Process results as they complete
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    wav_file, num_segments = future.result()
+                    self.update_status(f"Completed processing {os.path.basename(wav_file)} with {num_segments} segments.")
+                except Exception as e:
+                    wav_task = futures[future]
+                    wav_file = wav_task[0]
+                    self.update_status(f"Error processing WAV file {os.path.basename(wav_file)}: {str(e)}")
+        
+        end_time = time.time()
+        processing_time = end_time - start_time
+        self.update_status(f"Audio extraction complete! Processed {total_wav_files} WAV files in {processing_time:.2f} seconds.")
+    
+    def process_wav_file(self, wav_file, segments, audio_segments_dir, wav_index, total_wav_files):
+        """Process a single WAV file and extract all its segments"""
+        try:
+            self.update_status(f"Processing WAV file {wav_index}/{total_wav_files}: {os.path.basename(wav_file)}...")
+            
+            # Get total segments for this WAV file
+            total_segments = len(segments)
+            self.update_status(f"Found {total_segments} segments to extract from {os.path.basename(wav_file)}.")
+            
+            # Use pydub's segment extraction with frame-accurate seeking
+            audio = AudioSegment.from_file(wav_file, format="wav")
+            base_name = os.path.splitext(os.path.basename(wav_file))[0]
+            
+            # Track how many segments were actually processed
+            processed_segments = 0
+            
+            # Process all segments for this WAV file
+            for segment_index, segment_info in enumerate(segments, 1):
+                begin_time = segment_info['begin_time']
+                end_time = segment_info['end_time']
+                segment_id = segment_info['segment_id']
                 
-                # Read the rest of the lines
-                reader = csv.reader(f, delimiter='\t')
+                # Convert to milliseconds for pydub
+                begin_ms = int(begin_time * 1000)
+                end_ms = int(end_time * 1000)
                 
-                for i, row in enumerate(reader, 1):
-                    if len(row) >= 5:  # Ensure we have enough columns
-                        try:
-                            # Extract begin and end times in seconds
-                            begin_time = float(row[3])
-                            end_time = float(row[4])
-                            
-                            # Convert to milliseconds for pydub
-                            begin_ms = int(begin_time * 1000)
-                            end_ms = int(end_time * 1000)
-                            
-                            # Extract the segment
-                            segment = audio[begin_ms:end_ms]
-                            
-                            # Generate output filename
-                            base_name = os.path.splitext(os.path.basename(wav_file))[0]
-                            segment_filename = f"{base_name}_segment_{i:03d}_{begin_time:.2f}s-{end_time:.2f}s.wav"
-                            segment_path = os.path.join(audio_segments_dir, segment_filename)
-                            
-                            # Export the segment
-                            segment.export(segment_path, format="wav")
-                            
-                        except Exception as e:
-                            self.update_status(f"Error processing segment {i}: {e}")
-                            continue
+                # Generate output filename
+                segment_filename = f"{base_name}_segment_{segment_id:03d}_{begin_time:.2f}s-{end_time:.2f}s.wav"
+                segment_path = os.path.join(audio_segments_dir, segment_filename)
+                
+                # Check if segment already exists (to avoid reprocessing)
+                if os.path.exists(segment_path):
+                    if segment_index % 10 == 0:  # Only update status every 10 segments to reduce UI updates
+                        self.update_status(f"Segment {segment_index}/{total_segments} already exists, skipping.")
+                    continue
+                
+                # Extract and export the segment directly
+                if segment_index % 10 == 0:  # Only update status every 10 segments
+                    self.update_status(f"Exporting segment {segment_index}/{total_segments} from {os.path.basename(wav_file)}...")
+                
+                # Extract the segment and export it in one operation
+                segment = audio[begin_ms:end_ms]
+                segment.export(segment_path, format="wav")
+                processed_segments += 1
+            
+            # Free memory
+            del audio
+            
+            # Return the WAV file name and number of segments processed for status updates
+            return wav_file, processed_segments
+            
+        except Exception as e:
+            # Re-raise the exception to be caught by the executor
+            raise Exception(f"Error processing {os.path.basename(wav_file)}: {str(e)}")
     
     # Helper functions
     def extract_datetime_from_filename(self, filename):
