@@ -17,7 +17,7 @@ class ElocAudioProcessor(tk.Tk):
         # Set window properties
         self.title("ELOC Audio Processor")
         self.geometry("900x700")
-        self.configure(bg="#626F47")  # Background for main window
+        self.configure(bg="#54613b")  # Background for main window
         
         # Set default values
         self.time_offset = -2
@@ -37,11 +37,11 @@ class ElocAudioProcessor(tk.Tk):
         # #8c4511 - Brown - Used for combobox text
         # #000000 - Black - Used for combobox readonly field background
         
-        self.style.configure('TFrame', background='#626F47')  # Dark olive green frames
-        self.style.configure('TLabel', background='#626F47', foreground='#FEFAE0', font=('Segoe UI', 10))  # Dark green labels with cream text
+        self.style.configure('TFrame', background='#54613b')  # Dark olive green frames
+        self.style.configure('TLabel', background='#54613b', foreground='#FEFAE0', font=('Segoe UI', 10))  # Dark green labels with cream text
         
         # Standard buttons 
-        self.style.configure('TButton', background='#515c3b', foreground='#FEFAE0', font=('Segoe UI', 10), 
+        self.style.configure('TButton', background='#424d2f', foreground='#FEFAE0', font=('Segoe UI', 10), 
                             borderwidth=0, relief='flat', padding=(15, 10))  # Add padding (horizontal, vertical)
         # Add hover (active) state for standard buttons - lighter olive green when hovered
         self.style.map('TButton', 
@@ -57,7 +57,11 @@ class ElocAudioProcessor(tk.Tk):
                       foreground=[('active', '#FFFFFF')])
         
         # Checkbuttons - Light green/beige background with cream text
-        self.style.configure('TCheckbutton', background='#e7e8a6', foreground='#FEFAE0', font=('Segoe UI', 10))
+        self.style.configure('TCheckbutton', background='#54613b', foreground='#FEFAE0', font=('Segoe UI', 10))
+        # Remove hover effect for checkbuttons by setting the same background color for active state
+        self.style.map('TCheckbutton', 
+                      background=[('active', '#54613b')],
+                      foreground=[('active', '#FEFAE0')])
         
         # Combobox - White background with brown text, light green field background
         self.style.configure('TCombobox', background='white', foreground='#8c4511', fieldbackground='#e7e8a6')
@@ -105,14 +109,15 @@ class ElocAudioProcessor(tk.Tk):
         
         # Processing options
         ttk.Label(param_frame, text="Processing Options:").grid(row=0, column=2, sticky=tk.W, padx=(20, 5), pady=5)
-        self.process_option_var = tk.StringVar(value="both")
         
-        # Radio buttons for processing options
-        ttk.Radiobutton(param_frame, text="Create Raven Selection Tables", 
-                       variable=self.process_option_var, value="tables").grid(row=0, column=3, sticky=tk.W, padx=5, pady=5)
+        # Checkbuttons for processing options
+        self.create_tables_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(param_frame, text="Create Raven Selection Tables", 
+                       variable=self.create_tables_var, state='disabled').grid(row=0, column=3, sticky=tk.W, padx=5, pady=5)
         
-        ttk.Radiobutton(param_frame, text="Cut and Copy Detected Soundfiles", 
-                       variable=self.process_option_var, value="audio").grid(row=1, column=3, sticky=tk.W, padx=5, pady=5)
+        self.extract_audio_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(param_frame, text="Cut and Copy Detected Soundfiles", 
+                       variable=self.extract_audio_var).grid(row=1, column=3, sticky=tk.W, padx=5, pady=5)
         
         # Folder list section
         folder_frame = ttk.Frame(self.main_frame)
@@ -436,31 +441,34 @@ class ElocAudioProcessor(tk.Tk):
                         self.update_status(f"No matching WAV file found for {recording_id}, using minimum event time instead.")
                         start_seconds = group['Recording_Seconds'].min()
                     
-                    # Initialize selection table content
-                    raven_table_content = "Selection\tView\tChannel\tBegin Time (s)\tEnd Time (s)\tLow Freq (Hz)\tHigh Freq (Hz)\n"
-                    
-                    # Iterate over all detected events in this recording
-                    for i, row in group.iterrows():
-                        # Calculate begin time with adjustable offset
-                        event_start_seconds = (row['Recording_Seconds'] - start_seconds) + time_offset
-                        event_end_seconds = event_start_seconds + segment_length
+                    # Check if selection tables should be created
+                    if self.create_tables_var.get():
+                        # Initialize selection table content
+                        raven_table_content = "Selection\tView\tChannel\tBegin Time (s)\tEnd Time (s)\tLow Freq (Hz)\tHigh Freq (Hz)\n"
                         
-                        raven_table_content += (
-                            f"{i+1}\tSpectrogram 1\t1\t{event_start_seconds:.2f}\t{event_end_seconds:.2f}\t"
-                            f"{row['background'] * 1000:.2f}\t{row['trumpet'] * 5000:.2f}\n"
-                        )
-                    
-                    # Fix Windows filename issue (replace ':' with '-')
-                    file_name = f"{recording_id.replace(':', '-')}_SelectionTable.txt"
-                    output_path = os.path.join(selection_tables_dir, file_name)
-                    
-                    with open(output_path, 'w') as f:
-                        f.write(raven_table_content)
+                        # Iterate over all detected events in this recording
+                        for i, row in group.iterrows():
+                            # Calculate begin time with adjustable offset
+                            event_start_seconds = (row['Recording_Seconds'] - start_seconds) + time_offset
+                            event_end_seconds = event_start_seconds + segment_length
+                            
+                            raven_table_content += (
+                                f"{i+1}\tSpectrogram 1\t1\t{event_start_seconds:.2f}\t{event_end_seconds:.2f}\t"
+                                f"{row['background'] * 1000:.2f}\t{row['trumpet'] * 5000:.2f}\n"
+                            )
+                        
+                        # Fix Windows filename issue (replace ':' with '-')
+                        file_name = f"{recording_id.replace(':', '-')}_SelectionTable.txt"
+                        output_path = os.path.join(selection_tables_dir, file_name)
+                        
+                        with open(output_path, 'w') as f:
+                            f.write(raven_table_content)
+                        
+                        self.update_status(f"Selection tables created for {os.path.basename(csv_file)}")
                 
-                self.update_status(f"Selection tables created for {os.path.basename(csv_file)}")
-                
-                # Now extract audio segments
-                self.extract_audio_segments(folder_path, selection_tables_dir, audio_segments_dir)
+                # Check if audio segments should be extracted
+                if self.extract_audio_var.get():
+                    self.extract_audio_segments(folder_path, selection_tables_dir, audio_segments_dir)
                 
             except Exception as e:
                 self.update_status(f"Error processing CSV file {os.path.basename(csv_file)}: {str(e)}")
