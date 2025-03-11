@@ -12,8 +12,10 @@ from pydub import AudioSegment
 import csv
 import time
 import logging
+import sys
+from tkinterdnd2 import DND_FILES, TkinterDnD
 
-class ElocAudioProcessor(tk.Tk):
+class ElocAudioProcessor(TkinterDnD.Tk):
     def __init__(self):
         super().__init__()
         
@@ -64,6 +66,7 @@ class ElocAudioProcessor(tk.Tk):
         # Add hover (active) state for accent buttons - brighter amber when hovered
         self.style.map('Accent.TButton', 
                       background=[('active', '#f5a93a')],
+
                       foreground=[('active', '#FFFFFF')])
         
         # Checkbuttons - Light green/beige background with cream text
@@ -133,7 +136,8 @@ class ElocAudioProcessor(tk.Tk):
         folder_frame = ttk.Frame(self.main_frame)
         folder_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 20))
         
-        ttk.Label(folder_frame, text="Available ELOC Folders:", font=('Segoe UI', 12, 'bold')).pack(anchor=tk.W, pady=(0, 10))
+        ttk.Label(folder_frame, text="Select Folder to Process (or Drag & Drop from Windows Explorer):", 
+                 font=('Segoe UI', 12, 'bold')).pack(anchor=tk.W, pady=(0, 10))
         
         # Create a frame for the folder list with scrollbar
         list_frame = ttk.Frame(folder_frame)
@@ -147,6 +151,10 @@ class ElocAudioProcessor(tk.Tk):
         columns = ("Folder", "WAV Files", "CSV Files")
         self.folder_tree = ttk.Treeview(list_frame, columns=columns, show="headings", selectmode="extended")
         self.folder_tree.pack(fill=tk.BOTH, expand=True)
+        
+        # Set up drag and drop for the folder list
+        self.folder_tree.drop_target_register(DND_FILES)
+        self.folder_tree.dnd_bind('<<Drop>>', self.on_drop)
         
         # Configure scrollbar
         scrollbar.config(command=self.folder_tree.yview)
@@ -771,6 +779,214 @@ class ElocAudioProcessor(tk.Tk):
             'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
         }
         return month_map.get(month_name, month_name)
+    
+    def on_drop(self, event):
+        """Handle dropped files/folders from Windows Explorer"""
+        # Get the dropped data
+        data = event.data
+        
+        # Debug the raw data format
+        self.update_status(f"Raw drop data: {data}")
+        
+        # Parse the paths from the data
+        paths = []
+        
+        # Handle different possible formats
+        if data.startswith('{') and data.endswith('}'):
+            # Format: {path1} {path2} {path3}
+            # Remove the outer braces
+            data = data[1:-1]
+            
+            # Split by '} {' for paths with spaces
+            if '} {' in data:
+                paths = data.split('} {')
+            else:
+                # Try to split by space, but only if the space is between paths
+                # This is a heuristic and might need adjustment
+                parts = data.split()
+                current_path = ""
+                
+                for part in parts:
+                    if os.path.exists(part) or (current_path == "" and part.endswith(':')):
+                        # This is likely the start of a new path
+                        if current_path:
+                            paths.append(current_path)
+                        current_path = part
+                    else:
+                        # This is likely part of the current path
+                        if current_path:
+                            current_path += " " + part
+                        else:
+                            current_path = part
+                
+                # Add the last path
+                if current_path:
+                    paths.append(current_path)
+                
+                # If we couldn't parse any paths, treat the whole string as one path
+                if not paths:
+                    paths = [data]
+        else:
+            # For space-separated paths without braces
+            # First, try to split by space and check if each part is a valid path
+            parts = data.split()
+            
+            # Check if each part is a valid path
+            valid_paths = []
+            for part in parts:
+                if os.path.exists(part):
+                    valid_paths.append(part)
+            
+            if valid_paths:
+                paths = valid_paths
+            else:
+                # If no valid paths found, try to split by space and check if the resulting paths exist
+                # This is for cases like "D:/path1 D:/path2"
+                potential_paths = []
+                current_path = ""
+                
+                for part in parts:
+                    if part.startswith("D:") or part.startswith("C:") or part.startswith("/"):
+                        # This looks like the start of a new path
+                        if current_path:
+                            potential_paths.append(current_path)
+                        current_path = part
+                    else:
+                        # This is likely part of the current path
+                        if current_path:
+                            current_path += " " + part
+                        else:
+                            current_path = part
+                
+                # Add the last path
+                if current_path:
+                    potential_paths.append(current_path)
+                
+                # Check if the potential paths exist
+                valid_potential_paths = []
+                for path in potential_paths:
+                    if os.path.exists(path):
+                        valid_potential_paths.append(path)
+                
+                if valid_potential_paths:
+                    paths = valid_potential_paths
+                else:
+                    # If still no valid paths found, treat the whole string as one path
+                    paths = [data]
+        
+        # Debug the parsed paths
+        for i, path in enumerate(paths):
+            self.update_status(f"Parsed path {i+1}: {path}")
+        
+        # Update drive dropdown to show custom path
+        self.drive_combo['values'] = ["Custom Folder"]
+        self.drive_var.set("Custom Folder")
+        
+        # Clear current list only once
+        self.folder_tree.delete(*self.folder_tree.get_children())
+        
+        # Store all parent directories for files
+        parent_dirs = set()
+        root_folders = []
+        
+        # First pass: collect all directories to process
+        for path in paths:
+            # Remove any quotes or braces
+            path = path.strip('"{}')
+            
+            # Check if the path exists
+            if not os.path.exists(path):
+                self.update_status(f"Invalid path: {path}")
+                continue
+            
+            # Check if it's a directory
+            if os.path.isdir(path):
+                # Add to the list of directories to process
+                root_folders.append(path)
+            else:
+                # It's a file, check if it's a WAV or CSV file
+                if path.lower().endswith('.wav') or path.lower().endswith('.csv'):
+                    # Get the parent directory
+                    parent_dir = os.path.dirname(path)
+                    parent_dirs.add(parent_dir)
+                else:
+                    self.update_status(f"Unsupported file type: {path}")
+        
+        # Add parent directories of files to the list of directories to process
+        root_folders.extend(list(parent_dirs))
+        
+        # Set the custom folder path to the first valid directory
+        if root_folders:
+            self.custom_folder_path = root_folders[0]
+        
+        # Process all collected directories
+        folders_added = 0
+        
+        for path in root_folders:
+            # Check if the folder directly contains WAV and CSV files
+            wav_count = len(glob.glob(os.path.join(path, "*.wav")))
+            csv_count = len(glob.glob(os.path.join(path, "*.csv")))
+            
+            if wav_count > 0 and csv_count > 0:
+                # The folder directly contains WAV and CSV files
+                folder_name = os.path.basename(path)
+                if not folder_name:  # In case the path ends with a separator
+                    folder_name = os.path.basename(os.path.dirname(path))
+                
+                # Use a special marker to indicate this is the root folder itself
+                self.folder_tree.insert("", tk.END, values=(f"[ROOT] {folder_name}", wav_count, csv_count))
+                folders_added += 1
+                
+                # Flag to indicate we're using the root folder directly
+                self.using_root_folder = True
+            else:
+                # Check for subfolders
+                try:
+                    subfolders = [f for f in os.listdir(path) if os.path.isdir(os.path.join(path, f))]
+                    
+                    if not subfolders:
+                        # If no subfolders and no WAV/CSV files in root, show message
+                        if wav_count == 0 or csv_count == 0:
+                            self.update_status(f"No valid ELOC data found in {path}")
+                        else:
+                            # If no subfolders but has WAV/CSV files, add the folder itself
+                            folder_name = os.path.basename(path)
+                            if not folder_name:  # In case the path ends with a separator
+                                folder_name = os.path.basename(os.path.dirname(path))
+                            
+                            # Use a special marker to indicate this is the root folder itself
+                            self.folder_tree.insert("", tk.END, values=(f"[ROOT] {folder_name}", wav_count, csv_count))
+                            folders_added += 1
+                            
+                            # Flag to indicate we're using the root folder directly
+                            self.using_root_folder = True
+                    else:
+                        # Count files in each subfolder
+                        subfolder_count = 0
+                        for folder in subfolders:
+                            subfolder_path = os.path.join(path, folder)
+                            subfolder_wav_count = len(glob.glob(os.path.join(subfolder_path, "*.wav")))
+                            subfolder_csv_count = len(glob.glob(os.path.join(subfolder_path, "*.csv")))
+                            
+                            # Add to treeview
+                            self.folder_tree.insert("", tk.END, values=(folder, subfolder_wav_count, subfolder_csv_count))
+                            subfolder_count += 1
+                            folders_added += 1
+                        
+                        self.update_status(f"Found {subfolder_count} subfolders in {path}")
+                except Exception as e:
+                    self.update_status(f"Error scanning folder: {str(e)}")
+        
+        # Update status with total count
+        if folders_added > 0:
+            self.status_var.set(f"Added {folders_added} folders from drag and drop")
+        else:
+            self.status_var.set("No valid folders found from drag and drop")
+        
+        # Select all folders with CSV files
+        self.select_folders_with_csv()
+        
+        return "break"  # Prevent further handling of the drop event
     
     def find_wav_file(self, selection_table_filename, folder_path):
         """Find the corresponding WAV file for a selection table"""

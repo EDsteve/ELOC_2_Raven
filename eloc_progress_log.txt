@@ -1,3 +1,98 @@
-ELOC Audio Processor Log - Started at 2025-03-12 01:13:14
+ELOC Audio Processor Log - Started at 2025-03-12 01:57:08
 --------------------------------------------------------------------------------
 
+[2025-03-12 01:57:16] Raw drop data: D:/eloc/test2_1741599038977 D:/eloc/test2_1741605292068
+[2025-03-12 01:57:16] Parsed path 1: D:/eloc/test2_1741599038977
+[2025-03-12 01:57:16] Parsed path 2: D:/eloc/test2_1741605292068
+[2025-03-12 01:57:22] Raw drop data: D:/eloc/test2_1741358517178 D:/eloc/test2_1741328467755 D:/eloc/test2_1741605292068 D:/eloc/test2_1741599038977
+[2025-03-12 01:57:22] Parsed path 1: D:/eloc/test2_1741358517178
+[2025-03-12 01:57:22] Parsed path 2: D:/eloc/test2_1741328467755
+[2025-03-12 01:57:22] Parsed path 3: D:/eloc/test2_1741605292068
+[2025-03-12 01:57:22] Parsed path 4: D:/eloc/test2_1741599038977
+[2025-03-12 01:57:22] Found 1 subfolders in D:/eloc/test2_1741358517178
+[2025-03-12 01:57:22] No valid ELOC data found in D:/eloc/test2_1741328467755
+[2025-03-12 01:57:39] Raw drop data: D:/eloc/test2_1741605292068 D:/eloc/test2_1741599038977 D:/eloc/test2_1741358517178
+[2025-03-12 01:57:39] Parsed path 1: D:/eloc/test2_1741605292068
+[2025-03-12 01:57:39] Parsed path 2: D:/eloc/test2_1741599038977
+[2025-03-12 01:57:39] Parsed path 3: D:/eloc/test2_1741358517178
+[2025-03-12 01:57:39] No valid ELOC data found in D:/eloc/test2_1741358517178
+[2025-03-12 01:57:51] Raw drop data: D:/eloc/test2_1741328467755 D:/eloc/test2_1741181641366 D:/eloc/test2_1741605292068 D:/eloc/test2_1741599038977 D:/eloc/test2_1741358517178
+[2025-03-12 01:57:51] Parsed path 1: D:/eloc/test2_1741328467755
+[2025-03-12 01:57:51] Parsed path 2: D:/eloc/test2_1741181641366
+[2025-03-12 01:57:51] Parsed path 3: D:/eloc/test2_1741605292068
+[2025-03-12 01:57:51] Parsed path 4: D:/eloc/test2_1741599038977
+[2025-03-12 01:57:51] Parsed path 5: D:/eloc/test2_1741358517178
+[2025-03-12 01:57:51] No valid ELOC data found in D:/eloc/test2_1741328467755
+[2025-03-12 01:57:51] No valid ELOC data found in D:/eloc/test2_1741181641366
+[2025-03-12 01:57:51] No valid ELOC data found in D:/eloc/test2_1741358517178
+[2025-03-12 01:58:03] Raw drop data: D:/eloc/1740129750362 D:/eloc/test2_1741605292068 D:/eloc/test2_1741599038977 D:/eloc/test2_1741358517178 D:/eloc/test2_1741328467755 D:/eloc/test2_1741181641366 D:/eloc/test2_1741180910225 D:/eloc/test2_1741147402802 D:/eloc/test2_1741146194589 D:/eloc/test2_1741145538645 D:/eloc/test2_1741144960325 D:/eloc/test_1741058586486 D:/eloc/test_1741001202837 D:/eloc/test_1740998585412 D:/eloc/test_1740994733135 D:/eloc/test_1740750132894 D:/eloc/test_1740746376025 D:/eloc/test_1740646459935 D:/eloc/test_1740543954362 D:/eloc/test_1740543738413 D:/eloc/test_1740543417752 D:/eloc/test_1740543197458 D:/eloc/test_1740542985141 D:/eloc/test_1740508917662 D:/eloc/1740491440100 D:/eloc/1740313539649 D:/eloc/1740235484006 D:/eloc/1740235095648 D:/eloc/1740234471058 D:/eloc/1740227367397 D:/eloc/1740223492752 D:/eloc/1740221965264 D:/eloc/1740203117030 D:/eloc/1740202251919 D:/eloc/1740201083956 D:/eloc/1740199869133 D:/eloc/1740150859160 D:/eloc/1740139217283_ODD D:/eloc/1740136897307 D:/eloc/1740136125119 D:/eloc/1740132697715 D:/eloc/LR22_1740132334921
+[2025-03-12 01:58:03] Parsed path 1: D:/eloc/1740129750362
+[2025-03-12 01:58:03] Parsed path 2: D:/eloc/test2_1741605292068
+[2025-03-12 01:58:03] Parsed path 3: D:/eloc/test2_1741599038977
+[2025-03-12 01:58:03] Parsed path 4: D:/eloc/test2_1741358517178
+[2025-03-12 01:58:03] Parsed path 5: D:/eloc/test2_1741328467755
+[2025-03-12 01:58:03] Parsed path 6: D:/eloc/test2_1741181641366
+[2025-03-12 01:58:03] Parsed path 7: D:/eloc/test2_1741180910225
+[2025-03-12 01:58:03] Parsed path 8: D:/eloc/test2_1741147402802
+[2025-03-12 01:58:03] Parsed path 9: D:/eloc/test2_1741146194589
+[2025-03-12 01:58:03] Parsed path 10: D:/eloc/test2_1741145538645
+[2025-03-12 01:58:03] Parsed path 11: D:/eloc/test2_1741144960325
+[2025-03-12 01:58:03] Parsed path 12: D:/eloc/test_1741058586486
+[2025-03-12 01:58:03] Parsed path 13: D:/eloc/test_1741001202837
+[2025-03-12 01:58:03] Parsed path 14: D:/eloc/test_1740998585412
+[2025-03-12 01:58:03] Parsed path 15: D:/eloc/test_1740994733135
+[2025-03-12 01:58:03] Parsed path 16: D:/eloc/test_1740750132894
+[2025-03-12 01:58:03] Parsed path 17: D:/eloc/test_1740746376025
+[2025-03-12 01:58:03] Parsed path 18: D:/eloc/test_1740646459935
+[2025-03-12 01:58:03] Parsed path 19: D:/eloc/test_1740543954362
+[2025-03-12 01:58:03] Parsed path 20: D:/eloc/test_1740543738413
+[2025-03-12 01:58:03] Parsed path 21: D:/eloc/test_1740543417752
+[2025-03-12 01:58:03] Parsed path 22: D:/eloc/test_1740543197458
+[2025-03-12 01:58:03] Parsed path 23: D:/eloc/test_1740542985141
+[2025-03-12 01:58:03] Parsed path 24: D:/eloc/test_1740508917662
+[2025-03-12 01:58:03] Parsed path 25: D:/eloc/1740491440100
+[2025-03-12 01:58:03] Parsed path 26: D:/eloc/1740313539649
+[2025-03-12 01:58:03] Parsed path 27: D:/eloc/1740235484006
+[2025-03-12 01:58:03] Parsed path 28: D:/eloc/1740235095648
+[2025-03-12 01:58:03] Parsed path 29: D:/eloc/1740234471058
+[2025-03-12 01:58:03] Parsed path 30: D:/eloc/1740227367397
+[2025-03-12 01:58:03] Parsed path 31: D:/eloc/1740223492752
+[2025-03-12 01:58:03] Parsed path 32: D:/eloc/1740221965264
+[2025-03-12 01:58:03] Parsed path 33: D:/eloc/1740203117030
+[2025-03-12 01:58:03] Parsed path 34: D:/eloc/1740202251919
+[2025-03-12 01:58:03] Parsed path 35: D:/eloc/1740201083956
+[2025-03-12 01:58:03] Parsed path 36: D:/eloc/1740199869133
+[2025-03-12 01:58:03] Parsed path 37: D:/eloc/1740150859160
+[2025-03-12 01:58:03] Parsed path 38: D:/eloc/1740139217283_ODD
+[2025-03-12 01:58:03] Parsed path 39: D:/eloc/1740136897307
+[2025-03-12 01:58:03] Parsed path 40: D:/eloc/1740136125119
+[2025-03-12 01:58:03] Parsed path 41: D:/eloc/1740132697715
+[2025-03-12 01:58:03] Parsed path 42: D:/eloc/LR22_1740132334921
+[2025-03-12 01:58:03] No valid ELOC data found in D:/eloc/1740129750362
+[2025-03-12 01:58:03] No valid ELOC data found in D:/eloc/test2_1741358517178
+[2025-03-12 01:58:03] No valid ELOC data found in D:/eloc/test2_1741328467755
+[2025-03-12 01:58:03] No valid ELOC data found in D:/eloc/test2_1741181641366
+[2025-03-12 01:58:03] No valid ELOC data found in D:/eloc/test2_1741180910225
+[2025-03-12 01:58:03] No valid ELOC data found in D:/eloc/test_1741058586486
+[2025-03-12 01:58:03] Found 1 subfolders in D:/eloc/test_1741001202837
+[2025-03-12 01:58:03] No valid ELOC data found in D:/eloc/test_1740998585412
+[2025-03-12 01:58:03] No valid ELOC data found in D:/eloc/test_1740994733135
+[2025-03-12 01:58:03] No valid ELOC data found in D:/eloc/test_1740750132894
+[2025-03-12 01:58:03] No valid ELOC data found in D:/eloc/test_1740646459935
+[2025-03-12 01:58:03] Found 1 subfolders in D:/eloc/test_1740543954362
+[2025-03-12 01:58:03] Found 1 subfolders in D:/eloc/test_1740543738413
+[2025-03-12 01:58:03] Found 1 subfolders in D:/eloc/test_1740543417752
+[2025-03-12 01:58:03] Found 1 subfolders in D:/eloc/test_1740543197458
+[2025-03-12 01:58:03] Found 1 subfolders in D:/eloc/test_1740542985141
+[2025-03-12 01:58:03] Found 1 subfolders in D:/eloc/test_1740508917662
+[2025-03-12 01:58:03] No valid ELOC data found in D:/eloc/1740313539649
+[2025-03-12 01:58:03] Found 1 subfolders in D:/eloc/1740235484006
+[2025-03-12 01:58:03] Found 1 subfolders in D:/eloc/1740235095648
+[2025-03-12 01:58:03] Found 1 subfolders in D:/eloc/1740234471058
+[2025-03-12 01:58:03] No valid ELOC data found in D:/eloc/1740221965264
+[2025-03-12 01:58:03] Found 1 subfolders in D:/eloc/1740201083956
+[2025-03-12 01:58:03] Found 1 subfolders in D:/eloc/1740150859160
+[2025-03-12 01:58:03] Found 1 subfolders in D:/eloc/1740136897307
+[2025-03-12 01:58:03] Found 1 subfolders in D:/eloc/1740136125119
+[2025-03-12 01:58:03] No valid ELOC data found in D:/eloc/1740132697715
+[2025-03-12 01:58:03] No valid ELOC data found in D:/eloc/LR22_1740132334921

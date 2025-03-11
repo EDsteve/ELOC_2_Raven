@@ -62,6 +62,8 @@ if %errorlevel% equ 1 (
 echo.
 echo Step 3: Starting ELOC Audio Processor...
 echo.
+echo NEW FEATURE: You can now drag and drop folders from Windows Explorer directly into the application!
+echo.
 python eloc_audio_processor.py
 
 pause

@@ -9,6 +9,7 @@ A Windows application for processing ELOC audio data from SD cards. This applica
 - Display WAV and CSV file counts for each subfolder
 - Select one or more subfolders for processing
 - One-click selection of all folders containing CSV files
+- Drag and drop support for folders and files from Windows Explorer
 - Adjustable time offset and audio segment length parameters
 - Background processing with status updates
 - Creates Raven Selection Tables and extracts audio segments
@@ -77,6 +78,15 @@ python eloc_audio_processor.py
 5. Select the folders you want to process (or use "Select All Folders with CSV")
 6. Click "Process Selected Folders" to start processing
 7. Monitor progress in the status bar at the bottom of the window
+
+### Drag and Drop Support
+
+The application now supports drag and drop from Windows Explorer:
+
+- Drag and drop folders containing WAV and CSV files directly into the application window
+- Drag and drop individual WAV or CSV files (the application will add their parent folder)
+- Drag and drop multiple folders or files at once
+- The application will automatically scan the dropped folders and select those with CSV files
 
 ## Output
 
