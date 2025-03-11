@@ -43,9 +43,9 @@ class ElocAudioProcessor(tk.Tk):
         # Standard buttons 
         self.style.configure('TButton', background='#424d2f', foreground='#FEFAE0', font=('Segoe UI', 10), 
                             borderwidth=0, relief='flat', padding=(15, 10))  # Add padding (horizontal, vertical)
-        # Add hover (active) state for standard buttons - lighter olive green when hovered
+        # Add hover (active) state for standard buttons 
         self.style.map('TButton', 
-                      background=[('active', '#515c3b')],
+                      background=[('active', '#424d2f')],
                       foreground=[('active', '#da9432')])
         
         # Accent buttons (like "Process Selected Folders") - Golden amber with cream text
@@ -223,34 +223,55 @@ class ElocAudioProcessor(tk.Tk):
             # Store the custom folder path for processing
             self.custom_folder_path = folder_path
             
-            # Scan for subfolders
+            # Check if the selected folder directly contains wav and csv files
+            wav_count = len(glob.glob(os.path.join(folder_path, "*.wav")))
+            csv_count = len(glob.glob(os.path.join(folder_path, "*.csv")))
+            
+            if wav_count > 0 and csv_count > 0:
+                # The selected folder directly contains wav and csv files
+                folder_name = os.path.basename(folder_path)
+                if not folder_name:  # In case the path ends with a separator
+                    folder_name = os.path.basename(os.path.dirname(folder_path))
+                
+                # Use a special marker to indicate this is the root folder itself
+                self.folder_tree.insert("", tk.END, values=(f"[ROOT] {folder_name}", wav_count, csv_count))
+                self.status_var.set(f"Selected folder with {wav_count} WAV files and {csv_count} CSV files")
+                
+                # Flag to indicate we're using the root folder directly
+                self.using_root_folder = True
+                return
+            
+            # If we get here, check for subfolders
             try:
                 subfolders = [f for f in os.listdir(folder_path) if os.path.isdir(os.path.join(folder_path, f))]
                 
                 if not subfolders:
-                    # If no subfolders, add the selected folder itself
-                    wav_count = len(glob.glob(os.path.join(folder_path, "*.wav")))
-                    csv_count = len(glob.glob(os.path.join(folder_path, "*.csv")))
-                    
-                    folder_name = os.path.basename(folder_path)
-                    if not folder_name:  # In case the path ends with a separator
-                        folder_name = os.path.basename(os.path.dirname(folder_path))
-                    
-                    # Use a special marker to indicate this is the root folder itself
-                    self.folder_tree.insert("", tk.END, values=(f"[ROOT] {folder_name}", wav_count, csv_count))
-                    self.status_var.set(f"Selected folder: {folder_path}")
-                    
-                    # Flag to indicate we're using the root folder directly
-                    self.using_root_folder = True
+                    # If no subfolders and no wav/csv files in root, show message
+                    if wav_count == 0 or csv_count == 0:
+                        self.status_var.set(f"No valid ELOC data found in {folder_path}")
+                        messagebox.showinfo("No Data Found", 
+                                           "The selected folder doesn't contain WAV and CSV files or valid subfolders.")
+                    else:
+                        # If no subfolders but has wav/csv files, add the selected folder itself
+                        folder_name = os.path.basename(folder_path)
+                        if not folder_name:  # In case the path ends with a separator
+                            folder_name = os.path.basename(os.path.dirname(folder_path))
+                        
+                        # Use a special marker to indicate this is the root folder itself
+                        self.folder_tree.insert("", tk.END, values=(f"[ROOT] {folder_name}", wav_count, csv_count))
+                        self.status_var.set(f"Selected folder: {folder_path}")
+                        
+                        # Flag to indicate we're using the root folder directly
+                        self.using_root_folder = True
                 else:
                     # Count files in each subfolder
                     for folder in subfolders:
                         subfolder_path = os.path.join(folder_path, folder)
-                        wav_count = len(glob.glob(os.path.join(subfolder_path, "*.wav")))
-                        csv_count = len(glob.glob(os.path.join(subfolder_path, "*.csv")))
+                        subfolder_wav_count = len(glob.glob(os.path.join(subfolder_path, "*.wav")))
+                        subfolder_csv_count = len(glob.glob(os.path.join(subfolder_path, "*.csv")))
                         
                         # Add to treeview
-                        self.folder_tree.insert("", tk.END, values=(folder, wav_count, csv_count))
+                        self.folder_tree.insert("", tk.END, values=(folder, subfolder_wav_count, subfolder_csv_count))
                     
                     self.status_var.set(f"Found {len(subfolders)} subfolders in {folder_path}")
             except Exception as e:
@@ -373,6 +394,11 @@ class ElocAudioProcessor(tk.Tk):
         """Process a single folder (similar to the original scripts but adapted)"""
         # Get WAV files and their start times
         wav_files = glob.glob(os.path.join(folder_path, "*.wav"))
+        
+        if not wav_files:
+            self.update_status(f"No WAV files found in {folder_path}")
+            return
+            
         wav_start_times = {}
         month_map = {
             '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr', '05': 'May', '06': 'Jun',
@@ -574,6 +600,14 @@ class ElocAudioProcessor(tk.Tk):
                 
                 if wav_files:
                     return wav_files[0]  # Return the first matching WAV file
+                
+                # If no match found with the specific pattern, try a more general search
+                # This is useful when the WAV file naming convention might be different
+                self.update_status(f"No exact match found, trying general search for hour {hour_part}")
+                for wav_file in glob.glob(os.path.join(folder_path, "*.wav")):
+                    filename = os.path.basename(wav_file)
+                    if numeric_date in filename and f"_{hour_part}-" in filename:
+                        return wav_file
         
         return None
 
