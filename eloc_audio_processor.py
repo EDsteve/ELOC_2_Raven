@@ -17,7 +17,7 @@ class ElocAudioProcessor(tk.Tk):
         # Set window properties
         self.title("ELOC Audio Processor")
         self.geometry("900x700")
-        self.configure(bg="#1e1e2e")  # Dark background for futuristic look
+        self.configure(bg="#141c11")  # Dark green background
         
         # Set default values
         self.time_offset = -2
@@ -28,16 +28,18 @@ class ElocAudioProcessor(tk.Tk):
         self.style = ttk.Style()
         self.style.theme_use('clam')  # Use clam theme as base
         
-        # Configure styles for a futuristic look
-        self.style.configure('TFrame', background='#1e1e2e')
-        self.style.configure('TLabel', background='#1e1e2e', foreground='#cdd6f4', font=('Segoe UI', 10))
-        self.style.configure('TButton', background='#89b4fa', foreground='#1e1e2e', font=('Segoe UI', 10, 'bold'))
-        self.style.configure('Accent.TButton', background='#f38ba8', foreground='#1e1e2e', font=('Segoe UI', 10, 'bold'))
-        self.style.configure('TCheckbutton', background='#1e1e2e', foreground='#cdd6f4', font=('Segoe UI', 10))
-        self.style.configure('TCombobox', background='#313244', foreground='#cdd6f4', fieldbackground='#313244')
-        self.style.map('TCombobox', fieldbackground=[('readonly', '#313244')])
-        self.style.map('TCombobox', selectbackground=[('readonly', '#313244')])
-        self.style.map('TCombobox', selectforeground=[('readonly', '#cdd6f4')])
+        # Configure styles with new color scheme
+        self.style.configure('TFrame', background='#141c11')
+        self.style.configure('TLabel', background='#141c11', foreground='#e7e8a6', font=('Segoe UI', 10))
+        self.style.configure('TButton', background='#5c6b28', foreground='#e7e8a6', font=('Segoe UI', 10, 'bold'), 
+                            borderwidth=0, relief='flat')
+        self.style.configure('Accent.TButton', background='#da9432', foreground='#141c11', font=('Segoe UI', 10, 'bold'), 
+                            borderwidth=0, relief='flat')
+        self.style.configure('TCheckbutton', background='#141c11', foreground='#e7e8a6', font=('Segoe UI', 10))
+        self.style.configure('TCombobox', background='#141c11', foreground='#e7e8a6', fieldbackground='#141c11')
+        self.style.map('TCombobox', fieldbackground=[('readonly', '#141c11')])
+        self.style.map('TCombobox', selectbackground=[('readonly', '#141c11')])
+        self.style.map('TCombobox', selectforeground=[('readonly', '#e7e8a6')])
         
         # Create main frame
         self.main_frame = ttk.Frame(self)
@@ -126,7 +128,7 @@ class ElocAudioProcessor(tk.Tk):
         
         # Status bar
         self.status_var = tk.StringVar(value="Ready")
-        status_bar = ttk.Label(self.main_frame, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
+        status_bar = ttk.Label(self.main_frame, textvariable=self.status_var, relief='flat', anchor=tk.W)
         status_bar.pack(fill=tk.X, pady=(20, 0))
         
         # Initialize drives list
