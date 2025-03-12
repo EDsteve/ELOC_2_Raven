@@ -20,8 +20,8 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         super().__init__()
         
         # Set window properties
-        self.title("ELOC Audio Processor")
-        self.geometry("900x700")
+        self.title("ELOC to Raven")
+        self.geometry("700x900")
         self.configure(bg="#54613b")  # Background for main window
         
         # Set default values
@@ -44,9 +44,9 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         # Color scheme explanation:
         # #626F47 - Dark olive green - Used for frames, labels, and standard buttons backgrounds
         # #FEFAE0 - Off-white/cream - Used for text on buttons and labels
-        # #e7e8a6 - Light green/beige - Main window background and checkbutton background
+        # #e7e8a6 - Light green/beige - Used for combobox, treeview, and spinbox backgrounds
         # #da9432 - Golden amber - Used for accent buttons (like "Process Selected Folders")
-        # #8c4511 - Brown - Used for combobox text
+        # #000000 -  - Used for combobox text
         # #000000 - Black - Used for combobox readonly field background
         
         self.style.configure('TFrame', background='#54613b')  # Dark olive green frames
@@ -61,7 +61,7 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                       foreground=[('active', '#da9432')])
         
         # Accent buttons (like "Process Selected Folders") - Golden amber with cream text
-        self.style.configure('Accent.TButton', background='#da9432', foreground='#FEFAE0', font=('Segoe UI', 12, 'bold'), 
+        self.style.configure('Accent.TButton', background='#da9432', foreground='#FEFAE0', font=('Segoe UI', 16, 'bold'), 
                             borderwidth=0, relief='flat')
         # Add hover (active) state for accent buttons - brighter amber when hovered
         self.style.map('Accent.TButton', 
@@ -76,11 +76,18 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                       background=[('active', '#54613b')],
                       foreground=[('active', '#FEFAE0')])
         
+        # Configure Treeview (folder list) with light green background
+        self.style.configure('Treeview', background='#e7e8a6', fieldbackground='#e7e8a6')
+        self.style.map('Treeview', background=[('selected', '#da9432')])  # Amber for selected items
+        
         # Combobox - White background with brown text, light green field background
         self.style.configure('TCombobox', background='white', foreground='#8c4511', fieldbackground='#e7e8a6')
-        self.style.map('TCombobox', fieldbackground=[('readonly', '#e7e8a6')])  # Black background when readonly
+        self.style.map('TCombobox', fieldbackground=[('readonly', '#e7e8a6')])  # Light green background when readonly
         self.style.map('TCombobox', selectbackground=[('readonly', '#e7e8a6')])  # Light green selection background
         self.style.map('TCombobox', selectforeground=[('readonly', '#e7e8a6')])  # Light green selection text
+        
+        # Configure Spinbox (for offset and segment length) with light green background
+        self.style.configure('TSpinbox', fieldbackground='#e7e8a6')
         
         # Create main frame
         self.main_frame = ttk.Frame(self)
@@ -90,6 +97,61 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         self.create_widgets()
         
     def create_widgets(self):
+        # Header section with logo and title
+        header_frame = ttk.Frame(self.main_frame)
+        header_frame.pack(fill=tk.X, pady=(0, 35))  # Increased bottom margin
+        
+        # Load the ELOC icon with size reduction and transparency
+        try:
+            from PIL import Image, ImageTk
+            
+            # Open the image with PIL
+            original_image = Image.open("ELOC-icon.png")
+            
+            # Calculate the resize ratio to get 150px width while maintaining aspect ratio
+            width_percent = (80 / float(original_image.size[0]))
+            new_height = int((float(original_image.size[1]) * float(width_percent)))
+            
+            # Resize the image
+            resized_image = original_image.resize((80, new_height), Image.LANCZOS)
+            
+            # Add 30% transparency (70% opacity)
+            if resized_image.mode != 'RGBA':
+                resized_image = resized_image.convert('RGBA')
+            
+            # Create a new image with transparency
+            data = resized_image.getdata()
+            new_data = []
+            for item in data:
+                # Change all pixels to have 70% of their original opacity
+                new_data.append((item[0], item[1], item[2], int(item[3] * 0.7) if len(item) > 3 else int(255 * 0.7)))
+            
+            resized_image.putdata(new_data)
+            
+            # Convert to PhotoImage for tkinter
+            icon_image = ImageTk.PhotoImage(resized_image)
+            
+            # Display the image
+            icon_label = ttk.Label(header_frame, image=icon_image, background='#54613b')
+            icon_label.image = icon_image  # Keep a reference to prevent garbage collection
+            icon_label.pack(side=tk.LEFT, padx=(0, 30))  # Increased right margin
+        except Exception as e:
+            print(f"Error loading or processing icon: {str(e)}")
+        
+        # Title and subtitle in a vertical frame
+        title_frame = ttk.Frame(header_frame)
+        title_frame.pack(side=tk.LEFT, fill=tk.Y)
+        
+        # Main title "ELOC to Raven" in big, bold letters
+        title_label = ttk.Label(title_frame, text="ELOC to Raven conveter", 
+                               font=('Segoe UI', 24, 'bold'), background='#54613b', foreground='#20241d')
+        title_label.pack(anchor=tk.W)
+        
+        # Subtitle in smaller letters
+        subtitle_label = ttk.Label(title_frame, text="Creates Selection Tables & Extracts Audio Snippets", 
+                                  font=('Segoe UI', 16), background='#54613b', foreground='#20241d')
+        subtitle_label.pack(anchor=tk.W)
+        
         # Drive selection section
         drive_frame = ttk.Frame(self.main_frame)
         drive_frame.pack(fill=tk.X, pady=(0, 20))
@@ -108,35 +170,11 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         # Select custom folder button
         ttk.Button(drive_frame, text="Select Custom Folder", command=self.select_custom_folder).pack(side=tk.LEFT, padx=10)
         
-        # Parameters section
-        param_frame = ttk.Frame(self.main_frame)
-        param_frame.pack(fill=tk.X, pady=(0, 20))
-        
-        ttk.Label(param_frame, text="Time Offset (seconds):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
-        self.time_offset_var = tk.DoubleVar(value=self.time_offset)
-        ttk.Spinbox(param_frame, from_=-10, to=10, increment=0.5, textvariable=self.time_offset_var, width=10).grid(row=0, column=1, padx=5, pady=5)
-        
-        ttk.Label(param_frame, text="Segment Length (seconds):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
-        self.segment_length_var = tk.DoubleVar(value=self.segment_length)
-        ttk.Spinbox(param_frame, from_=1, to=30, increment=1, textvariable=self.segment_length_var, width=10).grid(row=1, column=1, padx=5, pady=5)
-        
-        # Processing options
-        ttk.Label(param_frame, text="Processing Options:").grid(row=0, column=2, sticky=tk.W, padx=(20, 5), pady=5)
-        
-        # Checkbuttons for processing options
-        self.create_tables_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(param_frame, text="Create Raven Selection Tables", 
-                       variable=self.create_tables_var, state='disabled').grid(row=0, column=3, sticky=tk.W, padx=5, pady=5)
-        
-        self.extract_audio_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(param_frame, text="Cut and Copy Detected Soundfiles", 
-                       variable=self.extract_audio_var).grid(row=1, column=3, sticky=tk.W, padx=5, pady=5)
-        
         # Folder list section
         folder_frame = ttk.Frame(self.main_frame)
         folder_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 20))
         
-        ttk.Label(folder_frame, text="Select Folder to Process (or Drag & Drop from Windows Explorer):", 
+        ttk.Label(folder_frame, text="Select Folders to Process or Drag & Drop from Windows Explorer", 
                  font=('Segoe UI', 12, 'bold')).pack(anchor=tk.W, pady=(0, 10))
         
         # Create a frame for the folder list with scrollbar
@@ -178,6 +216,32 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         
         ttk.Button(button_frame, text="Clear Selection", 
                   command=self.clear_selection).pack(side=tk.LEFT)
+        
+        # Parameters section (moved above the process button)
+        param_frame = ttk.Frame(self.main_frame)
+        param_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        ttk.Label(param_frame, text="Time Offset (seconds):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        self.time_offset_var = tk.DoubleVar(value=self.time_offset)
+        ttk.Spinbox(param_frame, from_=-10, to=10, increment=0.5, textvariable=self.time_offset_var, width=10, 
+                   style='TSpinbox').grid(row=0, column=1, padx=5, pady=5)
+        
+        ttk.Label(param_frame, text="Segment Length (seconds):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        self.segment_length_var = tk.DoubleVar(value=self.segment_length)
+        ttk.Spinbox(param_frame, from_=1, to=30, increment=1, textvariable=self.segment_length_var, width=10,
+                   style='TSpinbox').grid(row=1, column=1, padx=5, pady=5)
+        
+        # Processing options
+        ttk.Label(param_frame, text="Processing Options:").grid(row=0, column=2, sticky=tk.W, padx=(20, 5), pady=5)
+        
+        # Checkbuttons for processing options
+        self.create_tables_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(param_frame, text="Create Raven Selection Tables", 
+                       variable=self.create_tables_var, state='disabled').grid(row=0, column=3, sticky=tk.W, padx=5, pady=5)
+        
+        self.extract_audio_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(param_frame, text="Cut and Copy Detected Soundfiles", 
+                       variable=self.extract_audio_var).grid(row=1, column=3, sticky=tk.W, padx=5, pady=5)
         
         # Process button
         process_button = ttk.Button(self.main_frame, text="Process Selected Folders", 
