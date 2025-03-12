@@ -152,6 +152,29 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                                   font=('Segoe UI', 16), background='#54613b', foreground='#20241d')
         subtitle_label.pack(anchor=tk.W)
         
+        # Add help icon on the right side
+        try:
+            from PIL import Image, ImageTk
+            
+            # Open the help icon image
+            help_image = Image.open("help.png")
+            
+            # Resize the help icon to appropriate size
+            help_image = help_image.resize((30, 30), Image.LANCZOS)
+            
+            # Convert to PhotoImage for tkinter
+            help_icon = ImageTk.PhotoImage(help_image)
+            
+            # Create a label for the help icon and place it on the right side of the header
+            help_label = ttk.Label(header_frame, image=help_icon, background='#54613b', cursor="hand2")
+            help_label.image = help_icon  # Keep a reference to prevent garbage collection
+            help_label.pack(side=tk.RIGHT, padx=10)
+            
+            # Bind click event to open README
+            help_label.bind("<Button-1>", lambda e: self.open_readme())
+        except Exception as e:
+            print(f"Error loading help icon: {str(e)}")
+        
         # Drive selection section
         drive_frame = ttk.Frame(self.main_frame)
         drive_frame.pack(fill=tk.X, pady=(0, 20))
@@ -843,6 +866,29 @@ class ElocAudioProcessor(TkinterDnD.Tk):
             'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
         }
         return month_map.get(month_name, month_name)
+    
+    def open_readme(self):
+        """Open the README.md file when the help icon is clicked"""
+        try:
+            readme_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "README.md")
+            if os.path.exists(readme_path):
+                # Use the default system application to open the README file
+                if sys.platform == 'win32':
+                    os.startfile(readme_path)
+                elif sys.platform == 'darwin':  # macOS
+                    import subprocess
+                    subprocess.call(['open', readme_path])
+                else:  # Linux
+                    import subprocess
+                    subprocess.call(['xdg-open', readme_path])
+                
+                self.status_var.set("Opened README file")
+            else:
+                messagebox.showinfo("README Not Found", "The README.md file could not be found.")
+                self.status_var.set("README file not found")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not open README file: {str(e)}")
+            self.status_var.set(f"Error opening README: {str(e)}")
     
     def on_drop(self, event):
         """Handle dropped files/folders from Windows Explorer"""
