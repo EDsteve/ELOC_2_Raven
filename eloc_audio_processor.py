@@ -21,7 +21,7 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         
         # Set window properties
         self.title("ELOC to Raven")
-        self.geometry("700x900")
+        self.geometry("700x800")
         self.configure(bg="#54613b")  # Background for main window
         
         # Set default values
@@ -224,7 +224,7 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         # Configure columns
         self.folder_tree.heading("Folder", text="Folder")
         self.folder_tree.heading("WAV Files", text="WAV Files")
-        self.folder_tree.heading("CSV Files", text="CSV Files")
+        self.folder_tree.heading("CSV Files", text="Valid CSV File")
         
         self.folder_tree.column("Folder", width=400)
         self.folder_tree.column("WAV Files", width=100, anchor=tk.CENTER)
@@ -234,7 +234,7 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         button_frame = ttk.Frame(self.main_frame)
         button_frame.pack(fill=tk.X, pady=(0, 20))
         
-        ttk.Button(button_frame, text="Select All Folders with CSV", 
+        ttk.Button(button_frame, text="Select Valid Folders", 
                   command=self.select_folders_with_csv).pack(side=tk.LEFT, padx=(0, 10))
         
         ttk.Button(button_frame, text="Clear Selection", 
@@ -244,12 +244,12 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         param_frame = ttk.Frame(self.main_frame)
         param_frame.pack(fill=tk.X, pady=(0, 20))
         
-        ttk.Label(param_frame, text="Time Offset (seconds):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(param_frame, text="Begin-Time Offset (seconds):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
         self.time_offset_var = tk.DoubleVar(value=self.time_offset)
         ttk.Spinbox(param_frame, from_=-10, to=10, increment=0.5, textvariable=self.time_offset_var, width=10, 
                    style='TSpinbox').grid(row=0, column=1, padx=5, pady=5)
         
-        ttk.Label(param_frame, text="Segment Length (seconds):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(param_frame, text="Snippet Length (seconds):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
         self.segment_length_var = tk.DoubleVar(value=self.segment_length)
         ttk.Spinbox(param_frame, from_=1, to=30, increment=1, textvariable=self.segment_length_var, width=10,
                    style='TSpinbox').grid(row=1, column=1, padx=5, pady=5)
