@@ -8,12 +8,24 @@ import string
 import ctypes
 import concurrent.futures
 from datetime import datetime
-from pydub import AudioSegment
 import csv
 import time
 import logging
 import sys
+import warnings
 from tkinterdnd2 import DND_FILES, TkinterDnD
+
+# Suppress the ffmpeg warning from pydub
+warnings.filterwarnings("ignore", category=RuntimeWarning, 
+                       message="Couldn't find ffmpeg or avconv - defaulting to ffmpeg, but may not work")
+
+# Import pydub after suppressing the warning
+try:
+    from pydub import AudioSegment
+    PYDUB_AVAILABLE = True
+except ImportError:
+    PYDUB_AVAILABLE = False
+    print("Warning: pydub module not available. Audio extraction will be disabled.")
 
 class ElocAudioProcessor(TkinterDnD.Tk):
     def __init__(self):
@@ -329,21 +341,26 @@ class ElocAudioProcessor(TkinterDnD.Tk):
             self.custom_folder_path = folder_path
             
             # Check if the selected folder directly contains wav and csv files
-            wav_count = len(glob.glob(os.path.join(folder_path, "*.wav")))
-            csv_count = len(glob.glob(os.path.join(folder_path, "*.csv")))
+            is_compatible, wav_count, compatible_csv_count = self.check_folder_compatibility(folder_path)
             
-            if wav_count > 0 and csv_count > 0:
-                # The selected folder directly contains wav and csv files
+            if wav_count > 0 and compatible_csv_count > 0:
+                # The selected folder directly contains compatible wav and csv files
                 folder_name = os.path.basename(folder_path)
                 if not folder_name:  # In case the path ends with a separator
                     folder_name = os.path.basename(os.path.dirname(folder_path))
                 
                 # Use a special marker to indicate this is the root folder itself
-                self.folder_tree.insert("", tk.END, values=(f"[ROOT] {folder_name}", wav_count, csv_count))
-                self.status_var.set(f"Selected folder with {wav_count} WAV files and {csv_count} CSV files")
+                csv_status = "Yes" if is_compatible else "No"
+                self.folder_tree.insert("", tk.END, values=(f"[ROOT] {folder_name}", wav_count, csv_status))
+                self.status_var.set(f"Selected folder with {wav_count} WAV files and {compatible_csv_count} compatible CSV files")
                 
                 # Flag to indicate we're using the root folder directly
                 self.using_root_folder = True
+                
+                # Automatically select if compatible
+                if is_compatible:
+                    self.select_folders_with_csv()
+                
                 return
             
             # If we get here, check for subfolders
@@ -351,34 +368,46 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                 subfolders = [f for f in os.listdir(folder_path) if os.path.isdir(os.path.join(folder_path, f))]
                 
                 if not subfolders:
-                    # If no subfolders and no wav/csv files in root, show message
-                    if wav_count == 0 or csv_count == 0:
+                    # If no subfolders and no compatible data in root, show message
+                    if wav_count == 0 or compatible_csv_count == 0:
                         self.status_var.set(f"No valid ELOC data found in {folder_path}")
                         messagebox.showinfo("No Data Found", 
-                                           "The selected folder doesn't contain WAV and CSV files or valid subfolders.")
+                                           "The selected folder doesn't contain compatible WAV and CSV files or valid subfolders.")
                     else:
-                        # If no subfolders but has wav/csv files, add the selected folder itself
+                        # If no subfolders but has compatible files, add the selected folder itself
                         folder_name = os.path.basename(folder_path)
                         if not folder_name:  # In case the path ends with a separator
                             folder_name = os.path.basename(os.path.dirname(folder_path))
                         
                         # Use a special marker to indicate this is the root folder itself
-                        self.folder_tree.insert("", tk.END, values=(f"[ROOT] {folder_name}", wav_count, csv_count))
+                        csv_status = "Yes" if is_compatible else "No"
+                        self.folder_tree.insert("", tk.END, values=(f"[ROOT] {folder_name}", wav_count, csv_status))
                         self.status_var.set(f"Selected folder: {folder_path}")
                         
                         # Flag to indicate we're using the root folder directly
                         self.using_root_folder = True
+                        
+                        # Automatically select if compatible
+                        if is_compatible:
+                            self.select_folders_with_csv()
                 else:
                     # Count files in each subfolder
+                    compatible_folders = 0
                     for folder in subfolders:
                         subfolder_path = os.path.join(folder_path, folder)
-                        subfolder_wav_count = len(glob.glob(os.path.join(subfolder_path, "*.wav")))
-                        subfolder_csv_count = len(glob.glob(os.path.join(subfolder_path, "*.csv")))
+                        is_compatible, subfolder_wav_count, compatible_csv_count = self.check_folder_compatibility(subfolder_path)
                         
-                        # Add to treeview
-                        self.folder_tree.insert("", tk.END, values=(folder, subfolder_wav_count, subfolder_csv_count))
+                        # Add to treeview with compatibility status
+                        csv_status = "Yes" if is_compatible else "No"
+                        self.folder_tree.insert("", tk.END, values=(folder, subfolder_wav_count, csv_status))
+                        
+                        if is_compatible:
+                            compatible_folders += 1
                     
-                    self.status_var.set(f"Found {len(subfolders)} subfolders in {folder_path}")
+                    self.status_var.set(f"Found {len(subfolders)} subfolders, {compatible_folders} compatible in {folder_path}")
+                    
+                    # Automatically select all compatible folders
+                    self.select_folders_with_csv()
             except Exception as e:
                 self.status_var.set(f"Error scanning folder: {str(e)}")
     
@@ -402,26 +431,67 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                 return
             
             # Count files in each subfolder
+            compatible_folders = 0
             for folder in subfolders:
                 folder_path = os.path.join(eloc_path, folder)
-                wav_count = len(glob.glob(os.path.join(folder_path, "*.wav")))
-                csv_count = len(glob.glob(os.path.join(folder_path, "*.csv")))
                 
-                # Add to treeview
-                self.folder_tree.insert("", tk.END, values=(folder, wav_count, csv_count))
+                # Check folder compatibility
+                is_compatible, wav_count, compatible_csv_count = self.check_folder_compatibility(folder_path)
+                
+                # Add to treeview with compatibility status
+                csv_status = "Yes" if is_compatible else "No"
+                self.folder_tree.insert("", tk.END, values=(folder, wav_count, csv_status))
+                
+                if is_compatible:
+                    compatible_folders += 1
             
-            self.status_var.set(f"Found {len(subfolders)} folders in {eloc_path}")
+            self.status_var.set(f"Found {len(subfolders)} folders, {compatible_folders} compatible in {eloc_path}")
+            
+            # Automatically select all compatible folders
+            self.select_folders_with_csv()
             
         except Exception as e:
             self.status_var.set(f"Error scanning folders: {str(e)}")
     
+    def is_csv_compatible(self, csv_path):
+        """Check if a CSV file is compatible with the expected format"""
+        try:
+            # Check if the filename starts with "EI-results"
+            filename = os.path.basename(csv_path)
+            return filename.startswith("EI-results")
+        except Exception as e:
+            self.update_status(f"Error checking CSV compatibility: {str(e)}")
+            return False
+    
+    def check_folder_compatibility(self, folder_path):
+        """Check if a folder has compatible CSV files and at least one WAV file"""
+        # Check for WAV files
+        wav_files = glob.glob(os.path.join(folder_path, "*.wav"))
+        wav_count = len(wav_files)
+        
+        if wav_count == 0:
+            return False, 0, 0  # No WAV files
+        
+        # Check for CSV files
+        csv_files = glob.glob(os.path.join(folder_path, "*.csv"))
+        
+        # Check if any CSV file is compatible
+        compatible_csv_count = 0
+        for csv_file in csv_files:
+            if self.is_csv_compatible(csv_file):
+                compatible_csv_count += 1
+        
+        # Return compatibility status, WAV count, and compatible CSV count
+        return compatible_csv_count > 0, wav_count, compatible_csv_count
+    
     def select_folders_with_csv(self):
-        """Select all folders that contain CSV files"""
+        """Select all folders that contain compatible CSV files and at least one WAV file"""
         self.folder_tree.selection_set()  # Clear current selection
         
         for item in self.folder_tree.get_children():
             values = self.folder_tree.item(item, "values")
-            if int(values[2]) > 0:  # If CSV count > 0
+            # Check if the folder has at least one WAV file and a compatible CSV file
+            if int(values[1]) > 0 and values[2] == "Yes":
                 self.folder_tree.selection_add(item)
     
     def clear_selection(self):
@@ -1037,14 +1107,18 @@ class ElocAudioProcessor(TkinterDnD.Tk):
             wav_count = len(glob.glob(os.path.join(path, "*.wav")))
             csv_count = len(glob.glob(os.path.join(path, "*.csv")))
             
-            if wav_count > 0 and csv_count > 0:
-                # The folder directly contains WAV and CSV files
+            # Check folder compatibility
+            is_compatible, wav_count, compatible_csv_count = self.check_folder_compatibility(path)
+            
+            if wav_count > 0 and compatible_csv_count > 0:
+                # The folder directly contains compatible WAV and CSV files
                 folder_name = os.path.basename(path)
                 if not folder_name:  # In case the path ends with a separator
                     folder_name = os.path.basename(os.path.dirname(path))
                 
                 # Use a special marker to indicate this is the root folder itself
-                self.folder_tree.insert("", tk.END, values=(f"[ROOT] {folder_name}", wav_count, csv_count))
+                csv_status = "Yes" if is_compatible else "No"
+                self.folder_tree.insert("", tk.END, values=(f"[ROOT] {folder_name}", wav_count, csv_status))
                 folders_added += 1
                 
                 # Flag to indicate we're using the root folder directly
@@ -1065,7 +1139,8 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                                 folder_name = os.path.basename(os.path.dirname(path))
                             
                             # Use a special marker to indicate this is the root folder itself
-                            self.folder_tree.insert("", tk.END, values=(f"[ROOT] {folder_name}", wav_count, csv_count))
+                            csv_status = "Yes" if is_compatible else "No"
+                            self.folder_tree.insert("", tk.END, values=(f"[ROOT] {folder_name}", wav_count, csv_status))
                             folders_added += 1
                             
                             # Flag to indicate we're using the root folder directly
@@ -1073,17 +1148,21 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                     else:
                         # Count files in each subfolder
                         subfolder_count = 0
+                        compatible_folders = 0
                         for folder in subfolders:
                             subfolder_path = os.path.join(path, folder)
-                            subfolder_wav_count = len(glob.glob(os.path.join(subfolder_path, "*.wav")))
-                            subfolder_csv_count = len(glob.glob(os.path.join(subfolder_path, "*.csv")))
+                            is_compatible, subfolder_wav_count, compatible_csv_count = self.check_folder_compatibility(subfolder_path)
                             
-                            # Add to treeview
-                            self.folder_tree.insert("", tk.END, values=(folder, subfolder_wav_count, subfolder_csv_count))
+                            # Add to treeview with compatibility status
+                            csv_status = "Yes" if is_compatible else "No"
+                            self.folder_tree.insert("", tk.END, values=(folder, subfolder_wav_count, csv_status))
                             subfolder_count += 1
                             folders_added += 1
+                            
+                            if is_compatible:
+                                compatible_folders += 1
                         
-                        self.update_status(f"Found {subfolder_count} subfolders in {path}")
+                        self.update_status(f"Found {subfolder_count} subfolders, {compatible_folders} compatible in {path}")
                 except Exception as e:
                     self.update_status(f"Error scanning folder: {str(e)}")
         

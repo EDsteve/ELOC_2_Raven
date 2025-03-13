@@ -6,9 +6,9 @@ A Windows application for processing ELOC audio data from SD cards. This applica
 
 - Select SD card drive from a dropdown menu
 - Automatically scan for ELOC folders and subfolders
-- Display WAV and CSV file counts for each subfolder
+- Display WAV files count and CSV compatibility status for each subfolder
 - Select one or more subfolders for processing
-- One-click selection of all folders containing CSV files
+- One-click selection of all folders containing compatible CSV files (filenames starting with "EI-results")
 - Drag and drop support for folders and files from Windows Explorer
 - Adjustable time offset and audio segment length parameters
 - Background processing with status updates
@@ -64,6 +64,14 @@ If you prefer to install components separately:
    run_eloc_processor.bat
    ```
 
+## CSV File Compatibility
+
+The application checks for CSV file compatibility based on the filename:
+
+- Compatible CSV files must have filenames that start with "EI-results"
+- Folders must contain at least one WAV file and one compatible CSV file to be considered valid
+- The application automatically identifies and selects all compatible folders
+
 ## Usage
 
 1. Run the application:
@@ -74,8 +82,9 @@ python eloc_audio_processor.py
 
 2. Select your SD card from the dropdown menu
 3. The application will scan for ELOC folders and display them in the list
+   - For each folder, it shows the number of WAV files and whether it has a compatible CSV file ("Yes" or "No")
 4. Adjust the time offset and segment length parameters if needed
-5. Select the folders you want to process (or use "Select All Folders with CSV")
+5. Select the folders you want to process (or use "Select Valid Folders" to select all compatible folders)
 6. Click "Process Selected Folders" to start processing
 7. Monitor progress in the status bar at the bottom of the window
 
