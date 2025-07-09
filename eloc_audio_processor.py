@@ -685,6 +685,19 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                 
                 # Strip spaces from column names
                 data.columns = data.columns.str.strip()
+
+                # Automatically detect the sound type column (not 'background' or date/time columns)
+                sound_column = None
+                for col in data.columns:
+                    if col not in ['Hour:Min:Sec Day', 'Month Date Year', 'background']:
+                        sound_column = col
+                        break
+                
+                if sound_column is None:
+                    self.update_status(f"Error: No sound type column found in {os.path.basename(csv_file)}")
+                    continue
+                
+                self.update_status(f"Processing {os.path.basename(csv_file)} - detected sound type: '{sound_column}'")
                 
                 # Split the 'Month Date Year' column into separate columns
                 date_columns = data['Month Date Year'].str.strip().str.split(expand=True)
@@ -739,7 +752,7 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                             
                             raven_table_content += (
                                 f"{i+1}\tSpectrogram 1\t1\t{event_start_seconds:.2f}\t{event_end_seconds:.2f}\t"
-                                f"{row['background'] * 1000:.2f}\t{row['trumpet'] * 5000:.2f}\n"
+                                f"{row['background'] * 1000:.2f}\t{row[sound_column] * 5000:.2f}\n"
                             )
                         
                         # Fix Windows filename issue (replace ':' with '-')
@@ -911,10 +924,12 @@ class ElocAudioProcessor(TkinterDnD.Tk):
     # Helper functions
     def extract_datetime_from_filename(self, filename):
         """Extract datetime from WAV filename"""
+        # Expected format: [variable_prefix]_[timestamp]_[date]_[time].wav
+        # Count from the end: date is 2nd from last, time is 1st from last
         parts = filename.split('_')
-        if len(parts) >= 4:
-            date_part = parts[2]  # "2025-03-10"
-            time_part = parts[3].replace('.wav', '')  # "18-14-52"
+        if len(parts) >= 3:
+            date_part = parts[-2]  # "2025-03-10" (2nd from end)
+            time_part = parts[-1].replace('.wav', '')  # "18-14-52" (1st from end)
             time_part = time_part.replace('-', ':')  # Convert to "18:14:52"
             return f"{date_part} {time_part}"
         return None
