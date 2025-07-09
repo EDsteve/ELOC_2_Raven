@@ -651,6 +651,7 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         self.update_status(f"Found {len(wav_files)} WAV files. Extracting timestamps... Please wait.")
             
         wav_start_times = {}
+        wav_file_lookup = {}  # Store WAV file info for better matching
         month_map = {
             '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr', '05': 'May', '06': 'Jun',
             '07': 'Jul', '08': 'Aug', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec'
@@ -664,9 +665,20 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                     year, month_num, day = date_parts
                     month_text = month_map.get(month_num, month_num)
                     formatted_date = f"{year}-{month_text}-{day}"
-                    recording_id = formatted_date + '_' + datetime_str.split()[1][:2] + ':00:00'
-                    seconds = self.datetime_to_seconds(datetime_str)
-                    wav_start_times[recording_id] = seconds
+                    
+                    # Get the actual start time of the WAV file
+                    wav_start_seconds = self.datetime_to_seconds(datetime_str)
+                    
+                    # Store WAV file info with the date for lookup
+                    date_key = f"{year}-{month_text}-{day}"
+                    if date_key not in wav_file_lookup:
+                        wav_file_lookup[date_key] = []
+                    
+                    wav_file_lookup[date_key].append({
+                        'file_path': wav_file,
+                        'start_seconds': wav_start_seconds,
+                        'datetime_str': datetime_str
+                    })
         
         # Process CSV files
         self.update_status(f"Scanning for CSV files in {os.path.basename(folder_path)}... Please wait.")
@@ -714,7 +726,7 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                 data['Recording_Start_Time'] = data['Hour:Min:Sec Day'].apply(lambda x: x.split()[0])
                 data['Recording_Seconds'] = data['Recording_Start_Time'].apply(self.time_to_seconds)
                 
-                # Create Recording_ID
+                # Create Recording_ID based on detection hour
                 data['Recording_ID'] = data.apply(
                     lambda row: f"{row['Year']}-{row['Month']}-{row['Date']}_{row['Recording_Start_Time'][:2]}:00:00", 
                     axis=1
@@ -731,10 +743,30 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                         self.update_status(f"Skipping incorrectly formatted Recording_ID: {recording_id}")
                         continue
                     
-                    # Determine the start of the recording in seconds from the WAV file
-                    if recording_id in wav_start_times:
-                        start_seconds = wav_start_times[recording_id]
-                    else:
+                    # Find the appropriate WAV file for this detection group
+                    date_key = f"{year}-{month}-{date}"
+                    wav_file_found = None
+                    start_seconds = None
+                    
+                    if date_key in wav_file_lookup:
+                        # Get the detection times for this group
+                        min_detection_time = group['Recording_Seconds'].min()
+                        max_detection_time = group['Recording_Seconds'].max()
+                        
+                        # Find the WAV file that contains these detection times
+                        for wav_info in wav_file_lookup[date_key]:
+                            wav_start = wav_info['start_seconds']
+                            # Assume WAV files are 1 hour long (3600 seconds)
+                            wav_end = wav_start + 3600
+                            
+                            # Check if the detections fall within this WAV file's time range
+                            if wav_start <= min_detection_time < wav_end:
+                                wav_file_found = wav_info['file_path']
+                                start_seconds = wav_start
+                                self.update_status(f"Found matching WAV file for {recording_id}: {os.path.basename(wav_file_found)}")
+                                break
+                    
+                    if start_seconds is None:
                         self.update_status(f"No matching WAV file found for {recording_id}, using minimum event time instead.")
                         start_seconds = group['Recording_Seconds'].min()
                     
@@ -1196,8 +1228,8 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         """Find the corresponding WAV file for a selection table"""
         parts = os.path.basename(selection_table_filename).split('_')
         if len(parts) >= 2:
-            date_part = parts[0]  # "2025-Mar-10"
-            hour_part = parts[1].split('-')[0]  # "18"
+            date_part = parts[0]  # "2025-Jul-09"
+            hour_part = parts[1].split('-')[0]  # "17"
             
             # Convert month name to number
             date_parts = date_part.split('-')
@@ -1206,16 +1238,41 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                 month_num = self.month_name_to_number(month_name)
                 numeric_date = f"{year}-{month_num}-{day}"
                 
-                # Look for WAV files that match this date and hour
+                # Convert hour to target time in seconds since midnight
+                target_hour = int(hour_part)
+                target_time_start = target_hour * 3600  # Start of the hour
+                target_time_end = target_time_start + 3600  # End of the hour
+                
+                # Look for WAV files that contain this time range
+                wav_files = glob.glob(os.path.join(folder_path, "*.wav"))
+                
+                for wav_file in wav_files:
+                    # Extract datetime from WAV filename
+                    datetime_str = self.extract_datetime_from_filename(os.path.basename(wav_file))
+                    if datetime_str:
+                        # Check if this WAV file is from the same date
+                        wav_date = datetime_str.split()[0]
+                        if wav_date == numeric_date:
+                            # Get WAV file start time in seconds since midnight
+                            wav_start_seconds = self.datetime_to_seconds(datetime_str)
+                            wav_end_seconds = wav_start_seconds + 3600  # Assume 1-hour WAV files
+                            
+                            # Check if the target hour overlaps with this WAV file
+                            if (wav_start_seconds <= target_time_start < wav_end_seconds or
+                                target_time_start <= wav_start_seconds < target_time_end):
+                                self.update_status(f"Found matching WAV file for {os.path.basename(selection_table_filename)}: {os.path.basename(wav_file)}")
+                                return wav_file
+                
+                # If no match found, try the old pattern matching as fallback
+                self.update_status(f"No time-based match found, trying pattern matching for {os.path.basename(selection_table_filename)}")
                 wav_pattern = f"*_{numeric_date}_{hour_part}-*-*.wav"
                 wav_files = glob.glob(os.path.join(folder_path, wav_pattern))
                 
                 if wav_files:
                     return wav_files[0]  # Return the first matching WAV file
                 
-                # If no match found with the specific pattern, try a more general search
-                # This is useful when the WAV file naming convention might be different
-                self.update_status(f"No exact match found, trying general search for hour {hour_part}")
+                # Final fallback: general search
+                self.update_status(f"No pattern match found, trying general search for hour {hour_part}")
                 for wav_file in glob.glob(os.path.join(folder_path, "*.wav")):
                     filename = os.path.basename(wav_file)
                     if numeric_date in filename and f"_{hour_part}-" in filename:

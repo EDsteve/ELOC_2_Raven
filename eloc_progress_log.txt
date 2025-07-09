@@ -1,29 +1,31 @@
-ELOC Audio Processor Log - Started at 2025-07-09 17:10:35
+ELOC Audio Processor Log - Started at 2025-07-09 18:19:39
 --------------------------------------------------------------------------------
 
-[2025-07-09 17:10:42] Raw drop data: {C:/Projects/ELOC/Scripts and Tools/ELOC_2_Raven/test2_1741599038977}
-[2025-07-09 17:10:42] Parsed path 1: C:/Projects/ELOC/Scripts and Tools/ELOC_2_Raven/test2_1741599038977
-[2025-07-09 17:10:57] Starting to process 1 folders... Please wait.
-[2025-07-09 17:10:57] Processing 1 folders in parallel... Please wait.
-[2025-07-09 17:10:57] Using 1 parallel workers for processing.
-[2025-07-09 17:10:57] Submitting folder 1/1: test2_1741599038977
-[2025-07-09 17:10:57] Processing folder 1/1: test2_1741599038977...
-[2025-07-09 17:10:57] Scanning for WAV files in test2_1741599038977... Please wait.
-[2025-07-09 17:10:57] Found 1 WAV files. Extracting timestamps... Please wait.
-[2025-07-09 17:10:57] Scanning for CSV files in test2_1741599038977... Please wait.
-[2025-07-09 17:10:57] Found 1 CSV files. Processing detection data... Please wait.
-[2025-07-09 17:10:57] Processing EI-results-ID-498009-DEPLOY-VER-6.csv - detected sound type: 'trumpet'
-[2025-07-09 17:10:57] Creating Raven selection table for recording 2025-Mar-10_16:00:00... Please wait.
-[2025-07-09 17:10:57] Selection table created for 2025-Mar-10_16:00:00
-[2025-07-09 17:10:57] Starting audio segment extraction for 2025-Mar-10_16:00:00... Please wait.
-[2025-07-09 17:10:57] Scanning for selection tables in Raven_Selection_Tables... Please wait.
-[2025-07-09 17:10:57] Found 1 selection tables. Starting audio extraction... Please wait.
-[2025-07-09 17:10:57] Processing 1 WAV files in parallel... Please wait.
-[2025-07-09 17:10:57] Using 1 parallel workers for audio extraction.
-[2025-07-09 17:10:57] Processing WAV file 1/1: test2_1741599038977_2025-03-10_16-30-39.wav...
-[2025-07-09 17:10:57] Found 16 segments to extract from test2_1741599038977_2025-03-10_16-30-39.wav.
-[2025-07-09 17:10:57] Exporting segment 10/16 from test2_1741599038977_2025-03-10_16-30-39.wav...
-[2025-07-09 17:10:57] Completed processing test2_1741599038977_2025-03-10_16-30-39.wav with 16 segments.
-[2025-07-09 17:10:57] Audio extraction complete! Processed 1 WAV files in 0.04 seconds.
-[2025-07-09 17:10:57] Completed folder 1/1: test2_1741599038977
-[2025-07-09 17:10:57] Processing complete! All folders processed in 0.08 seconds.
+[2025-07-09 18:19:41] Raw drop data: {C:/Projects/ELOC/Scripts and Tools/ELOC_2_Raven/Chainsaw tes_1752008938090}
+[2025-07-09 18:19:41] Parsed path 1: C:/Projects/ELOC/Scripts and Tools/ELOC_2_Raven/Chainsaw tes_1752008938090
+[2025-07-09 18:19:42] Starting to process 1 folders... Please wait.
+[2025-07-09 18:19:42] Processing 1 folders in parallel... Please wait.
+[2025-07-09 18:19:42] Using 1 parallel workers for processing.
+[2025-07-09 18:19:42] Submitting folder 1/1: Chainsaw tes_1752008938090
+[2025-07-09 18:19:42] Processing folder 1/1: Chainsaw tes_1752008938090...
+[2025-07-09 18:19:42] Scanning for WAV files in Chainsaw tes_1752008938090... Please wait.
+[2025-07-09 18:19:42] Found 11 WAV files. Extracting timestamps... Please wait.
+[2025-07-09 18:19:42] Scanning for CSV files in Chainsaw tes_1752008938090... Please wait.
+[2025-07-09 18:19:42] Found 1 CSV files. Processing detection data... Please wait.
+[2025-07-09 18:19:42] Processing EI-results-ID-737522-DEPLOY-VER-7.csv - detected sound type: 'chainsaw'
+[2025-07-09 18:19:42] Found matching WAV file for 2025-Jul-08_23:00:00: 1752008938090_2025-07-08_23-33-48.wav
+[2025-07-09 18:19:42] Creating Raven selection table for recording 2025-Jul-08_23:00:00... Please wait.
+[2025-07-09 18:19:42] Selection table created for 2025-Jul-08_23:00:00
+[2025-07-09 18:19:42] Starting audio segment extraction for 2025-Jul-08_23:00:00... Please wait.
+[2025-07-09 18:19:42] Scanning for selection tables in Raven_Selection_Tables... Please wait.
+[2025-07-09 18:19:42] Found 1 selection tables. Starting audio extraction... Please wait.
+[2025-07-09 18:19:42] Found matching WAV file for 2025-Jul-08_23-00-00_SelectionTable.txt: 1752008938090_2025-07-08_23-33-48.wav
+[2025-07-09 18:19:42] Processing 1 WAV files in parallel... Please wait.
+[2025-07-09 18:19:42] Using 1 parallel workers for audio extraction.
+[2025-07-09 18:19:42] Processing WAV file 1/1: 1752008938090_2025-07-08_23-33-48.wav...
+[2025-07-09 18:19:42] Found 13 segments to extract from 1752008938090_2025-07-08_23-33-48.wav.
+[2025-07-09 18:19:42] Exporting segment 10/13 from 1752008938090_2025-07-08_23-33-48.wav...
+[2025-07-09 18:19:42] Completed processing 1752008938090_2025-07-08_23-33-48.wav with 13 segments.
+[2025-07-09 18:19:42] Audio extraction complete! Processed 1 WAV files in 0.15 seconds.
+[2025-07-09 18:19:42] Completed folder 1/1: Chainsaw tes_1752008938090
+[2025-07-09 18:19:42] Processing complete! All folders processed in 0.18 seconds.
