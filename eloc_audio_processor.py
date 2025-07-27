@@ -41,6 +41,14 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         self.segment_length = 5
         self.selected_folders = []
         
+        # Store mapping of folder names to their full paths for drag & drop
+        self.folder_path_mapping = {}
+        
+        # Processing state tracking
+        self.is_processing = False
+        self.stop_processing = False
+        self.process_button = None
+        
         # Set up logging to file
         self.log_file_path = "eloc_progress_log.txt"
         # Create or clear the log file
@@ -279,9 +287,9 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                        variable=self.extract_audio_var).grid(row=1, column=3, sticky=tk.W, padx=5, pady=5)
         
         # Process button
-        process_button = ttk.Button(self.main_frame, text="Process Selected Folders", 
-                                   command=self.process_folders, style='Accent.TButton')
-        process_button.pack(fill=tk.X, ipady=10)
+        self.process_button = ttk.Button(self.main_frame, text="Process Selected Folders", 
+                                        command=self.process_folders, style='Accent.TButton')
+        self.process_button.pack(fill=tk.X, ipady=10)
         
         # Status bar
         self.status_var = tk.StringVar(value="Ready")
@@ -499,7 +507,13 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         self.folder_tree.selection_set()  # Clear current selection
     
     def process_folders(self):
-        """Process the selected folders"""
+        """Process the selected folders or stop processing if already running"""
+        if self.is_processing:
+            # Stop processing
+            self.stop_processing = True
+            self.update_status("Stopping processing... Please wait.")
+            return
+        
         selected_items = self.folder_tree.selection()
         if not selected_items:
             messagebox.showinfo("Selection Required", "Please select at least one folder to process.")
@@ -518,11 +532,23 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         # Get drive path
         drive_path = self.drive_var.get()
         
+        # Set processing state and update button
+        self.is_processing = True
+        self.stop_processing = False
+        self.update_process_button()
+        
         # Start processing in a separate thread
         self.status_var.set("Processing started...")
         threading.Thread(target=self.run_processing, 
                         args=(drive_path, selected_folders, time_offset, segment_length),
                         daemon=True).start()
+    
+    def update_process_button(self):
+        """Update the process button text and appearance based on processing state"""
+        if self.is_processing:
+            self.process_button.config(text="STOP Processing")
+        else:
+            self.process_button.config(text="Process Selected Folders")
     
     def run_processing(self, drive_path, selected_folders, time_offset, segment_length):
         """Run the processing in a background thread with parallel processing"""
@@ -530,14 +556,27 @@ class ElocAudioProcessor(TkinterDnD.Tk):
             total_folders = len(selected_folders)
             self.update_status(f"Starting to process {total_folders} folders... Please wait.")
             
+            # Check for stop signal before starting
+            if self.stop_processing:
+                self.update_status("Processing stopped before starting.")
+                return
+            
             # Prepare folder paths and output directories
             folder_paths = []
             selection_tables_dirs = []
             audio_segments_dirs = []
             
             for folder in selected_folders:
-                # Check if we're using a custom folder or SD card
-                if drive_path == "Custom Folder" and hasattr(self, 'custom_folder_path'):
+                # Check for stop signal
+                if self.stop_processing:
+                    self.update_status("Processing stopped during setup.")
+                    return
+                
+                # Check if we have a stored path mapping for this folder (from drag & drop)
+                if folder in self.folder_path_mapping:
+                    # Use the stored full path
+                    folder_path = self.folder_path_mapping[folder]
+                elif drive_path == "Custom Folder" and hasattr(self, 'custom_folder_path'):
                     # Check if this is the root folder (marked with [ROOT])
                     if folder.startswith("[ROOT]"):
                         # Use the custom folder path directly
@@ -561,6 +600,11 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                 selection_tables_dirs.append(selection_tables_dir)
                 audio_segments_dirs.append(audio_segments_dir)
             
+            # Check for stop signal before processing
+            if self.stop_processing:
+                self.update_status("Processing stopped before folder processing.")
+                return
+            
             # Process folders with parallel execution
             self.update_status(f"Processing {total_folders} folders in parallel... Please wait.")
             
@@ -577,6 +621,11 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                 for i, (folder_path, selection_tables_dir, audio_segments_dir) in enumerate(
                     zip(folder_paths, selection_tables_dirs, audio_segments_dirs), 1
                 ):
+                    # Check for stop signal
+                    if self.stop_processing:
+                        self.update_status("Processing stopped during task submission.")
+                        break
+                    
                     self.update_status(f"Submitting folder {i}/{total_folders}: {os.path.basename(folder_path)}")
                     future = executor.submit(
                         self.process_folder_parallel,
@@ -591,23 +640,43 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                     futures.append(future)
                 
                 # Wait for all tasks to complete and handle results
+                completed_count = 0
                 for i, future in enumerate(concurrent.futures.as_completed(futures), 1):
+                    # Check for stop signal
+                    if self.stop_processing:
+                        self.update_status("Processing stopped. Waiting for current tasks to complete...")
+                        # Cancel remaining futures
+                        for remaining_future in futures:
+                            remaining_future.cancel()
+                        break
+                    
                     try:
                         result = future.result()
-                        self.update_status(f"Completed folder {i}/{total_folders}: {result}")
+                        completed_count += 1
+                        self.update_status(f"Completed folder {completed_count}/{len(futures)}: {result}")
                     except Exception as e:
                         self.update_status(f"Error processing folder {i}: {str(e)}")
             
             end_time = time.time()
             processing_time = end_time - start_time
             
-            self.update_status(f"Processing complete! All folders processed in {processing_time:.2f} seconds.")
-            messagebox.showinfo("Processing Complete", 
-                               f"All selected folders have been processed successfully in {processing_time:.2f} seconds.")
+            if self.stop_processing:
+                self.update_status(f"Processing stopped by user after {processing_time:.2f} seconds. {completed_count} folders completed.")
+                messagebox.showinfo("Processing Stopped", 
+                                   f"Processing was stopped by user. {completed_count} folders were completed in {processing_time:.2f} seconds.")
+            else:
+                self.update_status(f"Processing complete! All folders processed in {processing_time:.2f} seconds.")
+                messagebox.showinfo("Processing Complete", 
+                                   f"All selected folders have been processed successfully in {processing_time:.2f} seconds.")
             
         except Exception as e:
             self.update_status(f"Error during processing: {str(e)}")
             messagebox.showerror("Processing Error", f"An error occurred: {str(e)}")
+        finally:
+            # Reset processing state and update button
+            self.is_processing = False
+            self.stop_processing = False
+            self.after(0, self.update_process_button)
     
     def process_folder_parallel(self, folder_path, selection_tables_dir, audio_segments_dir, 
                                time_offset, segment_length, folder_index, total_folders):
@@ -722,84 +791,85 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                     self.update_status(f"Unexpected date format in file {os.path.basename(csv_file)}")
                     continue
                 
-                # Extract start time and group detections by one-hour recordings
+                # Extract start time and convert to seconds since midnight
                 data['Recording_Start_Time'] = data['Hour:Min:Sec Day'].apply(lambda x: x.split()[0])
                 data['Recording_Seconds'] = data['Recording_Start_Time'].apply(self.time_to_seconds)
                 
-                # Create Recording_ID based on detection hour
-                data['Recording_ID'] = data.apply(
-                    lambda row: f"{row['Year']}-{row['Month']}-{row['Date']}_{row['Recording_Start_Time'][:2]}:00:00", 
-                    axis=1
-                )
+                # Group detections by WAV file instead of by hour
+                detections_by_wav = {}
                 
-                # Group events by recording ID
-                grouped = data.groupby('Recording_ID')
-                
-                for recording_id, group in grouped:
-                    try:
-                        date_part, start_time = recording_id.split('_')
-                        year, month, date = date_part.split('-')
-                    except ValueError:
-                        self.update_status(f"Skipping incorrectly formatted Recording_ID: {recording_id}")
-                        continue
+                for i, row in data.iterrows():
+                    detection_time = row['Recording_Seconds']
+                    date_key = f"{row['Year']}-{row['Month']}-{row['Date']}"
                     
-                    # Find the appropriate WAV file for this detection group
-                    date_key = f"{year}-{month}-{date}"
+                    # Find which WAV file contains this detection
                     wav_file_found = None
-                    start_seconds = None
+                    wav_start_seconds = None
                     
                     if date_key in wav_file_lookup:
-                        # Get the detection times for this group
-                        min_detection_time = group['Recording_Seconds'].min()
-                        max_detection_time = group['Recording_Seconds'].max()
-                        
-                        # Find the WAV file that contains these detection times
                         for wav_info in wav_file_lookup[date_key]:
                             wav_start = wav_info['start_seconds']
-                            # Assume WAV files are 1 hour long (3600 seconds)
-                            wav_end = wav_start + 3600
+                            wav_end = wav_start + 3600  # Assume 1-hour WAV files
                             
-                            # Check if the detections fall within this WAV file's time range
-                            if wav_start <= min_detection_time < wav_end:
+                            # Check if this detection falls within this WAV file's time range
+                            if wav_start <= detection_time < wav_end:
                                 wav_file_found = wav_info['file_path']
-                                start_seconds = wav_start
-                                self.update_status(f"Found matching WAV file for {recording_id}: {os.path.basename(wav_file_found)}")
+                                wav_start_seconds = wav_start
                                 break
                     
-                    if start_seconds is None:
-                        self.update_status(f"No matching WAV file found for {recording_id}, using minimum event time instead.")
-                        start_seconds = group['Recording_Seconds'].min()
-                    
-                    # Check if selection tables should be created
-                    if self.create_tables_var.get():
-                        self.update_status(f"Creating Raven selection table for recording {recording_id}... Please wait.")
+                    if wav_file_found:
+                        # Group detections by WAV file
+                        wav_key = os.path.basename(wav_file_found).replace('.wav', '')
+                        if wav_key not in detections_by_wav:
+                            detections_by_wav[wav_key] = {
+                                'wav_file': wav_file_found,
+                                'wav_start_seconds': wav_start_seconds,
+                                'detections': []
+                            }
+                        
+                        detections_by_wav[wav_key]['detections'].append(row)
+                    else:
+                        self.update_status(f"No matching WAV file found for detection at {row['Recording_Start_Time']} on {date_key}")
+                
+                # Create selection tables grouped by WAV file
+                if self.create_tables_var.get():
+                    for wav_key, wav_data in detections_by_wav.items():
+                        wav_file_found = wav_data['wav_file']
+                        wav_start_seconds = wav_data['wav_start_seconds']
+                        detections = wav_data['detections']
+                        
+                        self.update_status(f"Creating Raven selection table for {wav_key}... Please wait.")
+                        
                         # Initialize selection table content
                         raven_table_content = "Selection\tView\tChannel\tBegin Time (s)\tEnd Time (s)\tLow Freq (Hz)\tHigh Freq (Hz)\n"
                         
-                        # Iterate over all detected events in this recording
-                        for i, row in group.iterrows():
+                        # Sort detections by time
+                        detections.sort(key=lambda x: x['Recording_Seconds'])
+                        
+                        # Iterate over all detected events for this WAV file
+                        for selection_id, row in enumerate(detections, 1):
                             # Calculate begin time with adjustable offset
-                            event_start_seconds = (row['Recording_Seconds'] - start_seconds) + time_offset
+                            event_start_seconds = (row['Recording_Seconds'] - wav_start_seconds) + time_offset
                             event_end_seconds = event_start_seconds + segment_length
                             
                             raven_table_content += (
-                                f"{i+1}\tSpectrogram 1\t1\t{event_start_seconds:.2f}\t{event_end_seconds:.2f}\t"
+                                f"{selection_id}\tSpectrogram 1\t1\t{event_start_seconds:.2f}\t{event_end_seconds:.2f}\t"
                                 f"{row['background'] * 1000:.2f}\t{row[sound_column] * 5000:.2f}\n"
                             )
                         
-                        # Fix Windows filename issue (replace ':' with '-')
-                        file_name = f"{recording_id.replace(':', '-')}_SelectionTable.txt"
+                        # Create filename based on WAV file name
+                        file_name = f"{wav_key}_SelectionTable.txt"
                         output_path = os.path.join(selection_tables_dir, file_name)
                         
                         with open(output_path, 'w') as f:
                             f.write(raven_table_content)
                         
-                        self.update_status(f"Selection table created for {recording_id}")
+                        self.update_status(f"Selection table created for {wav_key} with {len(detections)} detections")
                 
-                    # Check if audio segments should be extracted
-                    if self.extract_audio_var.get():
-                        self.update_status(f"Starting audio segment extraction for {recording_id}... Please wait.")
-                        self.extract_audio_segments(folder_path, selection_tables_dir, audio_segments_dir)
+                # Check if audio segments should be extracted
+                if self.extract_audio_var.get():
+                    self.update_status(f"Starting audio segment extraction... Please wait.")
+                    self.extract_audio_segments(folder_path, selection_tables_dir, audio_segments_dir)
                 
             except Exception as e:
                 self.update_status(f"Error processing CSV file {os.path.basename(csv_file)}: {str(e)}")
@@ -909,16 +979,50 @@ class ElocAudioProcessor(TkinterDnD.Tk):
             
             # Use pydub's segment extraction with frame-accurate seeking
             audio = AudioSegment.from_file(wav_file, format="wav")
+            audio_duration_s = len(audio) / 1000.0  # Convert to seconds
             base_name = os.path.splitext(os.path.basename(wav_file))[0]
+            
+            self.update_status(f"Audio file duration: {audio_duration_s:.2f} seconds")
             
             # Track how many segments were actually processed
             processed_segments = 0
+            skipped_segments = 0
             
             # Process all segments for this WAV file
             for segment_index, segment_info in enumerate(segments, 1):
                 begin_time = segment_info['begin_time']
                 end_time = segment_info['end_time']
                 segment_id = segment_info['segment_id']
+                
+                # Validate segment times before processing
+                if begin_time < 0:
+                    self.update_status(f"Skipping segment {segment_index}: negative begin time ({begin_time:.2f}s)")
+                    skipped_segments += 1
+                    continue
+                
+                if end_time <= begin_time:
+                    self.update_status(f"Skipping segment {segment_index}: invalid time range ({begin_time:.2f}s to {end_time:.2f}s)")
+                    skipped_segments += 1
+                    continue
+                
+                if begin_time >= audio_duration_s:
+                    self.update_status(f"Skipping segment {segment_index}: begins after audio end ({begin_time:.2f}s >= {audio_duration_s:.2f}s)")
+                    skipped_segments += 1
+                    continue
+                
+                # Adjust end time if it exceeds audio duration
+                original_end_time = end_time
+                if end_time > audio_duration_s:
+                    end_time = audio_duration_s
+                    if segment_index <= 5:  # Only show first few warnings to avoid spam
+                        self.update_status(f"Adjusting segment {segment_index} end time from {original_end_time:.2f}s to {end_time:.2f}s")
+                
+                # Check if we have a meaningful segment duration
+                segment_duration = end_time - begin_time
+                if segment_duration < 0.1:  # Less than 0.1 seconds
+                    self.update_status(f"Skipping segment {segment_index}: too short ({segment_duration:.2f}s)")
+                    skipped_segments += 1
+                    continue
                 
                 # Convert to milliseconds for pydub
                 begin_ms = int(begin_time * 1000)
@@ -928,23 +1032,46 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                 segment_filename = f"{base_name}_segment_{segment_id:03d}_{begin_time:.2f}s-{end_time:.2f}s.wav"
                 segment_path = os.path.join(audio_segments_dir, segment_filename)
                 
-                # Check if segment already exists (to avoid reprocessing)
+                # Check if segment already exists and is valid
                 if os.path.exists(segment_path):
-                    if segment_index % 10 == 0:  # Only update status every 10 segments to reduce UI updates
-                        self.update_status(f"Segment {segment_index}/{total_segments} already exists, skipping.")
-                    continue
+                    if os.path.getsize(segment_path) > 1000:  # More than 1KB indicates actual audio data
+                        if segment_index % 10 == 0:  # Only update status every 10 segments
+                            self.update_status(f"Segment {segment_index}/{total_segments} already exists, skipping.")
+                        continue
+                    else:
+                        # Remove empty file so we can recreate it properly
+                        os.remove(segment_path)
                 
-                # Extract and export the segment directly
+                # Extract and export the segment
                 if segment_index % 10 == 0:  # Only update status every 10 segments
                     self.update_status(f"Exporting segment {segment_index}/{total_segments} from {os.path.basename(wav_file)}...")
                 
-                # Extract the segment and export it in one operation
+                # Extract the segment and export it
                 segment = audio[begin_ms:end_ms]
+                
+                # Verify the extracted segment has actual audio data
+                if len(segment) < 100:  # Less than 0.1 seconds
+                    self.update_status(f"Skipping segment {segment_index}: extracted segment too short ({len(segment)}ms)")
+                    skipped_segments += 1
+                    continue
+                
                 segment.export(segment_path, format="wav")
-                processed_segments += 1
+                
+                # Verify the exported file is not empty
+                if os.path.exists(segment_path) and os.path.getsize(segment_path) > 1000:
+                    processed_segments += 1
+                else:
+                    self.update_status(f"Warning: Exported segment {segment_index} appears empty, removing")
+                    if os.path.exists(segment_path):
+                        os.remove(segment_path)
+                    skipped_segments += 1
             
             # Free memory
             del audio
+            
+            # Report results
+            if skipped_segments > 0:
+                self.update_status(f"Completed {os.path.basename(wav_file)}: {processed_segments} valid segments, {skipped_segments} skipped")
             
             # Return the WAV file name and number of segments processed for status updates
             return wav_file, processed_segments
@@ -1112,6 +1239,9 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         # Clear current list only once
         self.folder_tree.delete(*self.folder_tree.get_children())
         
+        # Clear the folder path mapping for drag & drop
+        self.folder_path_mapping = {}
+        
         # Store all parent directories for files
         parent_dirs = set()
         root_folders = []
@@ -1142,7 +1272,7 @@ class ElocAudioProcessor(TkinterDnD.Tk):
         # Add parent directories of files to the list of directories to process
         root_folders.extend(list(parent_dirs))
         
-        # Set the custom folder path to the first valid directory
+        # Set the custom folder path to the first valid directory (for backward compatibility)
         if root_folders:
             self.custom_folder_path = root_folders[0]
         
@@ -1164,8 +1294,13 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                     folder_name = os.path.basename(os.path.dirname(path))
                 
                 # Use a special marker to indicate this is the root folder itself
+                display_name = f"[ROOT] {folder_name}"
                 csv_status = "Yes" if is_compatible else "No"
-                self.folder_tree.insert("", tk.END, values=(f"[ROOT] {folder_name}", wav_count, csv_status))
+                self.folder_tree.insert("", tk.END, values=(display_name, wav_count, csv_status))
+                
+                # Store the full path mapping for this folder
+                self.folder_path_mapping[display_name] = path
+                
                 folders_added += 1
                 
                 # Flag to indicate we're using the root folder directly
@@ -1203,6 +1338,10 @@ class ElocAudioProcessor(TkinterDnD.Tk):
                             # Add to treeview with compatibility status
                             csv_status = "Yes" if is_compatible else "No"
                             self.folder_tree.insert("", tk.END, values=(folder, subfolder_wav_count, csv_status))
+                            
+                            # Store the full path mapping for this subfolder
+                            self.folder_path_mapping[folder] = subfolder_path
+                            
                             subfolder_count += 1
                             folders_added += 1
                             
@@ -1226,59 +1365,22 @@ class ElocAudioProcessor(TkinterDnD.Tk):
     
     def find_wav_file(self, selection_table_filename, folder_path):
         """Find the corresponding WAV file for a selection table"""
-        parts = os.path.basename(selection_table_filename).split('_')
-        if len(parts) >= 2:
-            date_part = parts[0]  # "2025-Jul-09"
-            hour_part = parts[1].split('-')[0]  # "17"
-            
-            # Convert month name to number
-            date_parts = date_part.split('-')
-            if len(date_parts) == 3:
-                year, month_name, day = date_parts
-                month_num = self.month_name_to_number(month_name)
-                numeric_date = f"{year}-{month_num}-{day}"
-                
-                # Convert hour to target time in seconds since midnight
-                target_hour = int(hour_part)
-                target_time_start = target_hour * 3600  # Start of the hour
-                target_time_end = target_time_start + 3600  # End of the hour
-                
-                # Look for WAV files that contain this time range
-                wav_files = glob.glob(os.path.join(folder_path, "*.wav"))
-                
-                for wav_file in wav_files:
-                    # Extract datetime from WAV filename
-                    datetime_str = self.extract_datetime_from_filename(os.path.basename(wav_file))
-                    if datetime_str:
-                        # Check if this WAV file is from the same date
-                        wav_date = datetime_str.split()[0]
-                        if wav_date == numeric_date:
-                            # Get WAV file start time in seconds since midnight
-                            wav_start_seconds = self.datetime_to_seconds(datetime_str)
-                            wav_end_seconds = wav_start_seconds + 3600  # Assume 1-hour WAV files
-                            
-                            # Check if the target hour overlaps with this WAV file
-                            if (wav_start_seconds <= target_time_start < wav_end_seconds or
-                                target_time_start <= wav_start_seconds < target_time_end):
-                                self.update_status(f"Found matching WAV file for {os.path.basename(selection_table_filename)}: {os.path.basename(wav_file)}")
-                                return wav_file
-                
-                # If no match found, try the old pattern matching as fallback
-                self.update_status(f"No time-based match found, trying pattern matching for {os.path.basename(selection_table_filename)}")
-                wav_pattern = f"*_{numeric_date}_{hour_part}-*-*.wav"
-                wav_files = glob.glob(os.path.join(folder_path, wav_pattern))
-                
-                if wav_files:
-                    return wav_files[0]  # Return the first matching WAV file
-                
-                # Final fallback: general search
-                self.update_status(f"No pattern match found, trying general search for hour {hour_part}")
-                for wav_file in glob.glob(os.path.join(folder_path, "*.wav")):
-                    filename = os.path.basename(wav_file)
-                    if numeric_date in filename and f"_{hour_part}-" in filename:
-                        return wav_file
+        # New format: WAV_filename_SelectionTable.txt
+        # Extract the WAV filename from the selection table filename
+        base_name = os.path.basename(selection_table_filename).replace('_SelectionTable.txt', '')
         
-        return None
+        # The base_name should now be the WAV filename without extension
+        # e.g., "1753053819136_2025-07-22_15-20-21"
+        wav_filename = f"{base_name}.wav"
+        wav_file_path = os.path.join(folder_path, wav_filename)
+        
+        # Check if the WAV file exists
+        if os.path.exists(wav_file_path):
+            self.update_status(f"Found matching WAV file for selection table: {wav_filename}")
+            return wav_file_path
+        else:
+            self.update_status(f"WAV file not found: {wav_filename} in {folder_path}")
+            return None
 
 if __name__ == "__main__":
     app = ElocAudioProcessor()
